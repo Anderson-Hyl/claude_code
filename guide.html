@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building a Claude Code Agent in Gleam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #16130f; --bg-raised: #1e1b16; --bg-code: #110f0c;
+  --surface: #25211c; --border: #332e27; --border-hover: #524838;
+  --text: #e4ddd2; --text-dim: #9d9486; --text-faint: #6b6358;
+  --pink: #ffaff3; --pink-dim: #c56bb5; --amber: #ffc44d; --amber-dim: #b8892e;
+  --mint: #7ee8c9; --mint-dim: #4a9e86; --blue: #8ec8ff; --blue-dim: #5a8ec0;
+  --rose: #ff8a9e; --rose-dim: #c45a6b;
+  --gold-gradient: linear-gradient(135deg, var(--amber) 0%, var(--pink) 100%);
+  --radius: 6px; --radius-lg: 12px;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'Newsreader', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --nav-width: 260px; --content-max: 860px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 2rem; }
+body {
+  font-family: var(--font-body); font-size: 1.125rem; line-height: 1.7;
+  color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased;
+}
+
+/* ── Navigation ── */
+.sidebar {
+  position: fixed; top: 0; left: 0; width: var(--nav-width); height: 100vh;
+  overflow-y: auto; padding: 2rem 1.5rem; border-right: 1px solid var(--border);
+  background: var(--bg-raised); z-index: 100; font-family: var(--font-mono); font-size: 0.8rem;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.sidebar-logo { font-family: var(--font-display); font-size: 1.15rem; color: var(--amber); text-decoration: none; display: block; margin-bottom: 2rem; letter-spacing: -0.01em; }
+.sidebar-logo span { color: var(--pink); }
+.nav-section { color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem; margin: 1.5rem 0 0.5rem; font-weight: 500; }
+.nav-section:first-of-type { margin-top: 0; }
+.nav-link { display: block; color: var(--text-dim); text-decoration: none; padding: 0.35rem 0; transition: color 0.15s; font-weight: 400; }
+.nav-link:hover { color: var(--amber); }
+.nav-link.active { color: var(--pink); }
+.nav-stage { display: inline-block; width: 1.4rem; color: var(--text-faint); font-size: 0.7rem; }
+main { margin-left: var(--nav-width); max-width: var(--content-max); padding: 4rem 3rem 6rem; }
+
+/* ── Hero ── */
+.hero { padding: 4rem 0 5rem; border-bottom: 1px solid var(--border); margin-bottom: 3rem; }
+.hero-badge { display: inline-block; font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--amber-dim); border: 1px solid var(--border); padding: 0.3rem 0.8rem; border-radius: 100px; margin-bottom: 1.5rem; }
+.hero h1 { font-family: var(--font-display); font-size: clamp(2.5rem, 5vw, 3.8rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1.25rem; background: var(--gold-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-subtitle { font-size: 1.35rem; color: var(--text-dim); font-style: italic; line-height: 1.5; margin-bottom: 1rem; font-weight: 350; }
+.hero-meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-faint); margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.hero-meta a { color: var(--amber-dim); text-decoration: none; border-bottom: 1px dotted var(--border-hover); }
+.hero-meta a:hover { color: var(--amber); }
+
+/* ── Stage sections ── */
+.stage { margin-bottom: 5rem; padding-top: 1rem; }
+.stage-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.5rem; }
+.stage-number { font-family: var(--font-mono); font-size: 0.75rem; color: var(--pink-dim); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.stage-title { font-family: var(--font-display); font-size: 2rem; color: var(--text); letter-spacing: -0.01em; line-height: 1.2; }
+
+/* ── Blocks ── */
+.goal-box { background: var(--bg-raised); border-left: 3px solid var(--amber); border-radius: 0 var(--radius) var(--radius) 0; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+.goal-box h4 { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--amber-dim); margin-bottom: 0.5rem; font-weight: 500; }
+.goal-box p { color: var(--text); font-size: 1.05rem; margin: 0; }
+.gleam-note { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+.gleam-note h4 { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--pink-dim); margin-bottom: 0.6rem; font-weight: 500; }
+.gleam-note p, .gleam-note ul { color: var(--text-dim); font-size: 1rem; margin: 0; font-style: italic; }
+.gleam-note ul { padding-left: 1.2rem; margin-top: 0.4rem; }
+.gleam-note li { margin-bottom: 0.2rem; }
+.file-tree { background: var(--bg-code); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin: 1.5rem 0; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.8; }
+.file-tree .dir { color: var(--blue-dim); }
+.file-tree .file { color: var(--text-dim); }
+.file-tree .new { color: var(--mint-dim); }
+.file-tree .comment { color: var(--text-faint); }
+.file-tree .i1 { padding-left: 1.5rem; }
+.file-tree .i2 { padding-left: 3rem; }
+.code-block { background: var(--bg-code); border: 1px solid var(--border); border-radius: var(--radius-lg); margin: 1.25rem 0; overflow: hidden; }
+.code-label { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-faint); padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); letter-spacing: 0.04em; }
+.code-block pre { padding: 1.25rem; overflow-x: auto; margin: 0; }
+.code-block code { font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.65; color: var(--text); }
+.kw { color: var(--pink); }  .ty { color: var(--amber); }  .str { color: var(--mint); }
+.co { color: var(--text-faint); font-style: italic; }  .fn { color: var(--blue); }
+.op { color: var(--pink-dim); }  .var { color: var(--text); }  .num { color: var(--rose-dim); }
+.cons { color: var(--amber-dim); }  .paren { color: var(--text-faint); }
+
+.run-box { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin: 1.5rem 0; display: flex; align-items: center; gap: 1rem; font-family: var(--font-mono); font-size: 0.82rem; }
+.run-icon { color: var(--mint); flex-shrink: 0; }
+.run-cmd { color: var(--mint-dim); }
+
+/* ── Progression table ── */
+.prog-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-family: var(--font-mono); font-size: 0.78rem; }
+.prog-table th { text-align: left; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.68rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); font-weight: 500; }
+.prog-table td { padding: 0.5rem 0.75rem; color: var(--text-dim); border-bottom: 1px solid rgba(51,46,39,0.5); }
+.prog-table .stage-col { color: var(--pink-dim); white-space: nowrap; }
+.prog-table .file-col { color: var(--blue-dim); }
+.prog-table .mech-col { color: var(--amber-dim); }
+
+/* ── Architecture diagram ── */
+.arch-diagram { background: var(--bg-code); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin: 1.5rem 0; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6; color: var(--text-dim); text-align: center; }
+.arch-diagram .highlight { color: var(--amber); }
+
+/* ── Summary ── */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin: 1.5rem 0; }
+.summary-item { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); text-align: center; }
+.summary-item .tn { color: var(--blue); } .summary-item .ts { color: var(--text-faint); font-size: 0.65rem; }
+.principles { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem 1.75rem; margin: 1.5rem 0; position: relative; overflow: hidden; }
+.principles::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at top left, rgba(255,175,243,0.04) 0%, transparent 70%); pointer-events: none; }
+.principles h3 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; color: var(--amber); position: relative; }
+.principles-list { list-style: none; padding: 0; }
+.principles-list li { padding: 0.4rem 0 0.4rem 1.5rem; position: relative; font-size: 1rem; color: var(--text-dim); }
+.principles-list li::before { content: '◇'; position: absolute; left: 0; color: var(--pink-dim); font-size: 0.6rem; top: 0.65rem; }
+
+.footer { margin-top: 5rem; padding-top: 2.5rem; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-faint); display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; }
+.footer a { color: var(--amber-dim); text-decoration: none; border-bottom: 1px dotted var(--border-hover); }
+.footer a:hover { color: var(--amber); }
+.footer-col h5 { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 0.75rem; font-weight: 500; }
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 5rem; position: relative; }
+.section-divider::after { content: '◆'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--border-hover); font-size: 0.6rem; background: var(--bg); padding: 0 1rem; }
+
+@media (max-width: 900px) {
+  .sidebar { position: relative; width: 100%; height: auto; padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar-logo { margin-bottom: 0; margin-right: auto; font-size: 1rem; }
+  .nav-section { display: none; }
+  .nav-link { font-size: 0.7rem; padding: 0.2rem 0.5rem; background: var(--surface); border-radius: 100px; }
+  main { margin-left: 0; padding: 2rem 1.25rem 4rem; }
+  .hero { padding: 2rem 0 3rem; } .hero h1 { font-size: 2rem; } .hero-subtitle { font-size: 1.1rem; }
+  .stage-title { font-size: 1.5rem; } .summary-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media print {
+  .sidebar { display: none; } main { margin-left: 0; }
+  body { font-size: 11pt; color: #000; background: #fff; }
+  .code-block { border: 1px solid #ccc; background: #fafafa; } .code-block code { color: #222; }
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <a href="#hero" class="sidebar-logo">claude_code<span>.gleam</span></a>
+  <div class="nav-section">Foundation</div>
+  <a href="#stage-0" class="nav-link"><span class="nav-stage">0</span> Project Bootstrap</a>
+  <a href="#stage-1" class="nav-link"><span class="nav-stage">1</span> API Client &amp; Agent Loop</a>
+  <div class="nav-section">Tools</div>
+  <a href="#stage-2" class="nav-link"><span class="nav-stage">2</span> Tool Dispatch &amp; File Tools</a>
+  <a href="#stage-3" class="nav-link"><span class="nav-stage">3</span> Todo Tool</a>
+  <div class="nav-section">Orchestration</div>
+  <a href="#stage-4" class="nav-link"><span class="nav-stage">4</span> Subagents</a>
+  <a href="#stage-5" class="nav-link"><span class="nav-stage">5</span> Skill Loading</a>
+  <div class="nav-section">Scale</div>
+  <a href="#stage-6" class="nav-link"><span class="nav-stage">6</span> Context Compaction</a>
+  <a href="#stage-7" class="nav-link"><span class="nav-stage">7</span> Task System (DAG)</a>
+  <a href="#stage-8" class="nav-link"><span class="nav-stage">8</span> Background Tasks</a>
+  <div class="nav-section">Reference</div>
+  <a href="#summary" class="nav-link">Architecture Summary</a>
+</nav>
+
+<main>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-badge">9 Stages &middot; Pure Functions &middot; Zero Classes</div>
+  <h1>Building a Claude Code Agent in Gleam</h1>
+  <p class="hero-subtitle">
+    A step-by-step guide to writing your own coding agent &mdash; designed from first principles
+    in Gleam, not mechanically translated from Swift.
+  </p>
+  <p class="hero-meta">
+    Based on <a href="https://ivanmagda.dev/posts/s00-bootstrapping-the-project" target="_blank" rel="noopener">Ivan Magda&rsquo;s Swift series</a>.
+    Each stage adds exactly one mechanism to an invariant core loop.
+    Gleam 1.16+ &middot; Erlang target &middot; May 2026
+  </p>
+</section>
+
+<!-- ═══════════════ STAGE 0 ═══════════════ -->
+<section class="stage" id="stage-0">
+  <div class="stage-header">
+    <span class="stage-number">Stage 0</span>
+    <h2 class="stage-title">Project Bootstrap</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Scaffold a Gleam project and add the dependencies we&rsquo;ll need: an HTTP client for the Anthropic API
+    and a file-system library for tool implementations.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Not a Swift Translation</h4>
+    <p>The Swift project splits into two SPM targets (Core library + cli executable) because SPM executables can&rsquo;t be imported by tests. Gleam has no such limitation &mdash; every module under <code>src/</code> is equally importable. We don&rsquo;t need a Core/cli split. We just need modules.</p>
+  </div>
+
+  <div class="run-box">
+    <span class="run-icon">$</span>
+    <span class="run-cmd">gleam new claude_code && cd claude_code</span>
+  </div>
+
+  <p style="color:var(--text-dim);margin-top:1.25rem;">
+    This creates <code>src/claude_code.gleam</code> (the entry point) and <code>test/claude_code_test.gleam</code>.
+    By Gleam convention, the module matching the project name is the application root.
+  </p>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">Add Dependencies</h4>
+
+  <div class="code-block">
+    <div class="code-label">gleam.toml (additions)</div>
+    <pre><code>[dependencies]
+gleam_stdlib = <span class="str">">= 1.0.0 and < 2.0.0"</span>
+<span class="co">// The official Gleam HTTP client — wraps Erlang's built-in httpc</span>
+<span class="kw">gleam_httpc</span> = <span class="str">">= 5.0.0 and < 6.0.0"</span>
+<span class="co">// De facto standard file-system package — works on Erlang + JS targets</span>
+<span class="kw">simplifile</span> = <span class="str">">= 2.0.0 and < 3.0.0"</span>
+
+[dev-dependencies]
+gleeunit = <span class="str">">= 1.0.0 and < 2.0.0"</span></code></pre>
+  </div>
+
+  <div class="run-box">
+    <span class="run-icon">$</span>
+    <span class="run-cmd">gleam deps download</span>
+  </div>
+
+  <p style="color:var(--text-dim);margin-top:1.25rem;">
+    We now have a working Gleam project with its three dependencies resolved. The project structure
+    is a single file &mdash; we&rsquo;ll add modules as each stage demands them.
+  </p>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 1 ═══════════════ -->
+<section class="stage" id="stage-1">
+  <div class="stage-header">
+    <span class="stage-number">Stage 1</span>
+    <h2 class="stage-title">API Client &amp; Agent Loop</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Write the HTTP client for the Anthropic Messages API, define the API types as Gleam custom types, and build the core agent loop: send a user query with a bash tool, execute tool calls, feed results back, loop until the model responds with text. Add a REPL so the user can type queries interactively.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Key Gleam Design Decisions</h4>
+    <ul>
+      <li><strong>No classes.</strong> The &ldquo;agent&rdquo; is a recursive function that threads immutable state as parameters. Each iteration builds a new state record from the previous one.</li>
+      <li><strong>No async/await.</strong> Gleam runs on the Erlang VM, where I/O blocks the calling process (which is fine &mdash; Erlang processes are cheap). The agent loop is a tail-recursive function; the BEAM compiler optimises tail calls into jumps.</li>
+      <li><strong>Custom types for API models.</strong> Gleam&rsquo;s algebraic data types model the API&rsquo;s polymorphic content blocks precisely &mdash; each variant carries exactly the fields it needs, with compiler-guaranteed exhaustive pattern matching.</li>
+      <li><strong>Result for all fallible operations.</strong> No exceptions, no <code>try/catch</code>. Every HTTP call, file read, and shell command returns <code>Result(a, e)</code>.</li>
+    </ul>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">New files this stage</h4>
+
+  <div class="file-tree">
+    <span class="dir">src/</span><br>
+    <span class="i1"><span class="file">claude_code.gleam</span> <span class="comment">&larr; REPL + main (modified)</span></span><br>
+    <span class="i1"><span class="dir">claude_code/</span></span><br>
+    <span class="i2"><span class="new">api.gleam</span> <span class="comment">&larr; HTTP client + API types</span></span><br>
+    <span class="i2"><span class="new">agent.gleam</span> <span class="comment">&larr; Core loop + tool dispatch</span></span><br>
+    <span class="i2"><span class="new">internal/</span></span><br>
+    <span class="i2"><span class="i1"><span class="new">shell.gleam</span> <span class="comment">&larr; Bash execution</span></span></span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/api.gleam</div>
+    <pre><code><span class="kw">import</span> gleam/json
+<span class="kw">import</span> gleam/httpc
+<span class="kw">import</span> gleam/http/request.{<span class="kw">type</span> <span class="ty">Request</span>}
+<span class="kw">import</span> gleam/http/response
+
+<span class="co">// ── API Data Types ──</span>
+
+<span class="kw">pub type</span> <span class="ty">Role</span> { <span class="cons">User</span>; <span class="cons">Assistant</span> }
+
+<span class="kw">pub type</span> <span class="ty">ContentBlock</span> {
+  <span class="cons">Text</span>(text: <span class="ty">String</span>)
+  <span class="cons">ToolUse</span>(id: <span class="ty">String</span>, name: <span class="ty">String</span>, input: <span class="ty">json.Json</span>)
+  <span class="cons">ToolResult</span>(tool_use_id: <span class="ty">String</span>, content: <span class="ty">String</span>, is_error: <span class="ty">Bool</span>)
+}
+
+<span class="kw">pub type</span> <span class="ty">Message</span> {
+  <span class="cons">Message</span>(role: <span class="ty">Role</span>, content: <span class="ty">List</span>(<span class="ty">ContentBlock</span>))
+}
+
+<span class="kw">pub type</span> <span class="ty">StopReason</span> { <span class="cons">EndTurn</span>; <span class="cons">MaxTokens</span>; <span class="cons">ToolUse</span> }
+
+<span class="kw">pub type</span> <span class="ty">APIResponse</span> {
+  <span class="cons">APIResponse</span>(content: <span class="ty">List</span>(<span class="ty">ContentBlock</span>), stop_reason: <span class="ty">StopReason</span>)
+}
+
+<span class="kw">pub type</span> <span class="ty">ToolDef</span> {
+  <span class="cons">ToolDef</span>(name: <span class="ty">String</span>, description: <span class="ty">String</span>, input_schema: <span class="ty">json.Json</span>)
+}
+
+<span class="co">// ── HTTP Client ──</span>
+
+<span class="kw">pub type</span> <span class="ty">Client</span> {
+  <span class="cons">Client</span>(api_key: <span class="ty">String</span>, base_url: <span class="ty">String</span>)
+}
+
+<span class="kw">pub fn</span> <span class="fn">create_message</span>(
+  client: <span class="ty">Client</span>,
+  model: <span class="ty">String</span>,
+  system_prompt: <span class="ty">String</span>,
+  messages: <span class="ty">List</span>(<span class="ty">Message</span>),
+  tools: <span class="ty">List</span>(<span class="ty">ToolDef</span>),
+  max_tokens: <span class="ty">Int</span>,
+) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">APIResponse</span>, <span class="ty">String</span>) {
+  <span class="kw">let</span> body = <span class="fn">json.object</span>([
+    <span class="fn">#</span>(<span class="str">"model"</span>, <span class="fn">json.string</span>(model)),
+    <span class="fn">#</span>(<span class="str">"max_tokens"</span>, <span class="fn">json.int</span>(max_tokens)),
+    <span class="fn">#</span>(<span class="str">"system"</span>, <span class="fn">json.string</span>(system_prompt)),
+    <span class="fn">#</span>(<span class="str">"messages"</span>, <span class="fn">encode_messages</span>(messages)),
+    <span class="fn">#</span>(<span class="str">"tools"</span>, <span class="fn">encode_tools</span>(tools)),
+  ]) <span class="op">|></span> <span class="fn">json.to_string</span>
+
+  <span class="kw">let</span> req = <span class="fn">request.new</span>()
+    <span class="op">|></span> <span class="fn">request.set_method</span>(<span class="cons">Post</span>)
+    <span class="op">|></span> <span class="fn">request.set_header</span>(<span class="str">"content-type"</span>, <span class="str">"application/json"</span>)
+    <span class="op">|></span> <span class="fn">request.set_header</span>(<span class="str">"x-api-key"</span>, client.api_key)
+    <span class="op">|></span> <span class="fn">request.set_header</span>(<span class="str">"anthropic-version"</span>, <span class="str">"2023-06-01"</span>)
+    <span class="op">|></span> <span class="fn">request.set_body</span>(body)
+    <span class="op">|></span> <span class="fn">request.set_url</span>(client.base_url <> <span class="str">"/v1/messages"</span>)
+
+  <span class="kw">use</span> resp <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">httpc.send</span>(req) <span class="op">|></span> <span class="fn">map_err</span>)
+  <span class="fn">decode_response</span>(<span class="fn">response.body</span>(resp))
+}</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/shell.gleam</div>
+    <pre><code><span class="kw">pub fn</span> <span class="fn">execute</span>(command: <span class="ty">String</span>, cwd: <span class="ty">String</span>, timeout_s: <span class="ty">Int</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">String</span>, <span class="ty">String</span>) {
+  <span class="co">// Uses Erlang's os:cmd/1 via FFI — returns stdout + stderr combined.</span>
+  <span class="co">// A production version would use ports for streaming and timeout control.</span>
+  <span class="co">// For the first stage, plain os:cmd keeps the surface area small.</span>
+  <span class="fn">shell_ffi.run</span>(command, cwd)
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);font-style:italic;margin-top:0.5rem;">
+    We start with Erlang&rsquo;s <code>os:cmd/1</code> behind a minimal FFI function. This is deliberately simple &mdash; we&rsquo;ll harden it with proper streaming and timeout handling once background tasks arrive in Stage&nbsp;8.
+  </p>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/agent.gleam &mdash; the loop</div>
+    <pre><code><span class="kw">import</span> claude_code/api.{<span class="kw">type</span> <span class="ty">Client</span>, <span class="kw">type</span> <span class="ty">ContentBlock</span>, <span class="kw">type</span> <span class="ty">Message</span>,
+  <span class="kw">type</span> <span class="ty">StopReason</span>, <span class="kw">type</span> <span class="ty">ToolDef</span>}
+<span class="kw">import</span> claude_code/api
+<span class="kw">import</span> claude_code/internal/shell
+
+<span class="kw">pub type</span> <span class="ty">AgentState</span> {
+  <span class="cons">AgentState</span>(
+    client: <span class="ty">Client</span>, model: <span class="ty">String</span>, system_prompt: <span class="ty">String</span>,
+    messages: <span class="ty">List</span>(<span class="ty">Message</span>), cwd: <span class="ty">String</span>,
+  )
+}
+
+<span class="co">// Sends a user query through the agent loop. Returns the final text response.</span>
+<span class="kw">pub fn</span> <span class="fn">run</span>(state: <span class="ty">AgentState</span>, query: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">#</span>(<span class="ty">String</span>, <span class="ty">AgentState</span>), <span class="ty">String</span>) {
+  <span class="kw">let</span> messages = <span class="fn">append_user_message</span>(state.messages, query)
+  <span class="kw">let</span> state = <span class="cons">AgentState</span>(..state, messages: messages)
+  <span class="fn">agent_loop</span>(state, <span class="num">0</span>)
+}
+
+<span class="co">// The invariant: API call → check stop_reason → execute tools → append results → recurse</span>
+<span class="kw">fn</span> <span class="fn">agent_loop</span>(state: <span class="ty">AgentState</span>, iteration: <span class="ty">Int</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">#</span>(<span class="ty">String</span>, <span class="ty">AgentState</span>), <span class="ty">String</span>) {
+  <span class="kw">use</span> response <span class="op"><-</span> <span class="fn">result.try</span>(
+    api.<span class="fn">create_message</span>(state.client, state.model, state.system_prompt, state.messages, <span class="fn">tool_defs</span>(), <span class="num">4096</span>)
+  )
+  <span class="kw">let</span> state = <span class="fn">append_assistant</span>(state, response.content)
+
+  <span class="kw">case</span> response.stop_reason {
+    <span class="cons">ToolUse</span> <span class="op">-></span> {
+      <span class="kw">use</span> results <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">process_tool_uses</span>(response.content, state))
+      <span class="kw">let</span> state = <span class="fn">append_user</span>(state, results)
+      <span class="fn">agent_loop</span>(state, iteration <span class="op">+</span> <span class="num">1</span>)
+    }
+    _ <span class="op">-></span> <span class="fn">Ok</span>(<span class="fn">#</span>(<span class="fn">extract_text</span>(response.content), state))
+  }
+}
+
+<span class="co">// Tool dispatch: one case branch per tool — exhaustive, compiler-checked</span>
+<span class="kw">fn</span> <span class="fn">execute_tool</span>(name: <span class="ty">String</span>, input: <span class="ty">json.Json</span>, state: <span class="ty">AgentState</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">ContentBlock</span>, <span class="ty">String</span>) {
+  <span class="kw">case</span> name {
+    <span class="str">"bash"</span> <span class="op">-></span> <span class="fn">execute_bash</span>(input, state.cwd)
+    <span class="kw">other</span> <span class="op">-></span>
+      <span class="fn">Ok</span>(<span class="cons">ToolResult</span>(..make_error_result(), content: <span class="str">"Unknown tool: "</span> <> other, is_error: <span class="cons">True</span>))
+  }
+}
+
+<span class="kw">fn</span> <span class="fn">execute_bash</span>(input: <span class="ty">json.Json</span>, cwd: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">ContentBlock</span>, <span class="ty">String</span>) {
+  <span class="kw">use</span> cmd <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">get_string</span>(input, <span class="str">"command"</span>))
+  <span class="kw">use</span> output <span class="op"><-</span> <span class="fn">result.try</span>(shell.<span class="fn">execute</span>(cmd, cwd, <span class="num">30</span>))
+  <span class="fn">Ok</span>(<span class="fn">tool_ok</span>(output))
+}
+
+<span class="kw">fn</span> <span class="fn">tool_defs</span>() <span class="op">-></span> <span class="ty">List</span>(<span class="ty">ToolDef</span>) {
+  [ <span class="cons">ToolDef</span>(name: <span class="str">"bash"</span>, description: <span class="str">"Run a shell command"</span>, input_schema: <span class="fn">bash_schema</span>()) ]
+}</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code.gleam &mdash; REPL entry point</div>
+    <pre><code><span class="kw">import</span> claude_code/agent.{<span class="kw">type</span> <span class="ty">AgentState</span>}
+<span class="kw">import</span> claude_code/agent
+<span class="kw">import</span> claude_code/api.{<span class="kw">type</span> <span class="ty">Client</span>}
+<span class="kw">import</span> gleam/io
+<span class="kw">import</span> gleam/string
+
+<span class="kw">pub fn</span> <span class="fn">main</span>() { <span class="kw">let</span> _ = <span class="fn">repl</span>(<span class="fn">initial_state</span>()) }
+
+<span class="kw">fn</span> <span class="fn">initial_state</span>() <span class="op">-></span> <span class="ty">AgentState</span> {
+  <span class="kw">let</span> api_key = <span class="fn">get_env</span>(<span class="str">"ANTHROPIC_API_KEY"</span>)
+  <span class="kw">let</span> model = <span class="fn">get_env</span>(<span class="str">"MODEL_ID"</span>) <span class="op">|></span> <span class="fn">string.default</span>(<span class="str">"claude-sonnet-4-6"</span>)
+  <span class="cons">AgentState</span>(
+    client: <span class="cons">Client</span>(api_key:, base_url: <span class="str">"https://api.anthropic.com"</span>),
+    model:, system_prompt: <span class="fn">system_prompt</span>(), messages: [], cwd: <span class="fn">current_dir</span>(),
+  )
+}
+
+<span class="kw">fn</span> <span class="fn">repl</span>(state: <span class="ty">AgentState</span>) <span class="op">-></span> <span class="ty">Nil</span> {
+  io.<span class="fn">print</span>(<span class="str">"> "</span>)
+  <span class="kw">case</span> io.<span class="fn">read_line</span>() {
+    <span class="cons">Error</span>(_) <span class="op">-></span> <span class="cons">Nil</span>  <span class="co">// EOF</span>
+    <span class="cons">Ok</span>(input) <span class="op">-></span> {
+      <span class="kw">case</span> <span class="fn">string.trim</span>(input) {
+        <span class="str">""</span> <span class="op">-></span> <span class="fn">repl</span>(state)
+        <span class="str">"exit"</span> <span class="op">|</span> <span class="str">"quit"</span> <span class="op">-></span> <span class="cons">Nil</span>
+        query <span class="op">-></span> {
+          <span class="kw">case</span> agent.<span class="fn">run</span>(state, query) {
+            <span class="cons">Ok</span>(<span class="fn">#</span>(response, new_state)) <span class="op">-></span> {
+              io.<span class="fn">println</span>(response)
+              <span class="fn">repl</span>(new_state)
+            }
+            <span class="cons">Error</span>(e) <span class="op">-></span> { io.<span class="fn">println</span>(<span class="str">"Error: "</span> <> e); <span class="fn">repl</span>(state) }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);font-style:italic;margin-top:1rem;">
+    The <code>AgentState</code> record captures everything the loop needs. <code>run</code> returns <code>Result(#(String, AgentState), String)</code> &mdash; a tuple of the response text and the <em>new</em> state with updated messages. The REPL passes this state forward into the next turn, preserving conversation history. No mutation, no hidden side effects.
+  </p>
+
+  <div class="run-box">
+    <span class="run-icon">$</span>
+    <span class="run-cmd">ANTHROPIC_API_KEY=sk-... gleam run</span>
+    <span style="color:var(--text-faint);margin-left:auto;">Type a query &mdash; the agent calls bash and responds</span>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 2 ═══════════════ -->
+<section class="stage" id="stage-2">
+  <div class="stage-header">
+    <span class="stage-number">Stage 2</span>
+    <h2 class="stage-title">Tool Dispatch &amp; File Tools</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Add <code>read_file</code>, <code>write_file</code>, and <code>edit_file</code> tools. Build a path sandbox that prevents the agent from escaping the workspace directory. The dispatch mechanism grows from a single <code>case</code> branch to five.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Gleam Dispatch Pattern</h4>
+    <p>Swift uses a <code>[String: handler]</code> dictionary of closures. Gleam doesn&rsquo;t have heterogeneous closure collections. The idiomatic approach is a <strong><code>case</code> expression on the tool name string</strong>. Each tool is one branch. Adding a tool is one new branch. The compiler warns on non-exhaustive patterns if we forget a tool. No dictionary, no registration, no protocol &mdash; just pattern matching.</p>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">New files this stage</h4>
+
+  <div class="file-tree">
+    <span class="i2"><span class="new">internal/sandbox.gleam</span> <span class="comment">&larr; Path resolution + workspace enforcement</span></span><br>
+    <span class="i2"><span class="new">internal/file_ops.gleam</span> <span class="comment">&larr; read_file, write_file, edit_file handlers</span></span>
+  </div>
+
+  <p style="color:var(--text-dim);margin-top:0.75rem;">
+    We extract the sandbox into its own module so every file-using tool (now and in future stages) shares the same safety check. The file operation handlers are pure functions that take <code>json.Json</code> input and return <code>Result(ContentBlock, String)</code>.
+  </p>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/sandbox.gleam</div>
+    <pre><code><span class="kw">import</span> simplifile
+<span class="kw">import</span> gleam/string
+
+<span class="kw">pub fn</span> <span class="fn">resolve</span>(relative: <span class="ty">String</span>, cwd: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">String</span>, <span class="ty">String</span>) {
+  <span class="kw">let</span> candidate = <span class="kw">case</span> <span class="fn">string.starts_with</span>(relative, <span class="str">"/"</span>) {
+    <span class="cons">True</span> <span class="op">-></span> relative
+    <span class="cons">False</span> <span class="op">-></span> cwd <> <span class="str">"/"</span> <> relative
+  }
+  <span class="kw">use</span> resolved <span class="op"><-</span> <span class="fn">result.try</span>(
+    <span class="fn">simplifile.absolute</span>(candidate) <span class="op">|></span> <span class="fn">result.replace_error</span>(<span class="str">"Cannot resolve path"</span>)
+  )
+  <span class="kw">case</span> <span class="fn">string.starts_with</span>(resolved, cwd) {
+    <span class="cons">True</span> <span class="op">-></span> <span class="fn">Ok</span>(resolved)
+    <span class="cons">False</span> <span class="op">-></span> <span class="fn">Error</span>(<span class="str">"Path escapes workspace: "</span> <> relative)
+  }
+}</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/file_ops.gleam</div>
+    <pre><code><span class="kw">import</span> claude_code/internal/sandbox
+<span class="kw">import</span> gleam/json
+<span class="kw">import</span> gleam/string
+<span class="kw">import</span> simplifile
+
+<span class="co">// Returns the first occurrence index, or Error if old_text is not in content.</span>
+<span class="kw">pub fn</span> <span class="fn">read_file</span>(input: <span class="ty">json.Json</span>, cwd: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">String</span>, <span class="ty">String</span>) {
+  <span class="kw">use</span> path <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">require_string</span>(input, <span class="str">"path"</span>))
+  <span class="kw">use</span> resolved <span class="op"><-</span> <span class="fn">result.try</span>(sandbox.<span class="fn">resolve</span>(path, cwd))
+  <span class="kw">use</span> content <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">simplifile.read</span>(resolved))
+  <span class="kw">let</span> limit = input
+    <span class="op">|></span> <span class="fn">get_int</span>(<span class="str">"limit"</span>)
+    <span class="op">|></span> <span class="fn">result.unwrap</span>(<span class="num">2000</span>)
+  <span class="fn">Ok</span>(<span class="fn">truncate_lines</span>(content, limit, <span class="num">50_000</span>))
+}
+
+<span class="kw">pub fn</span> <span class="fn">write_file</span>(input: <span class="ty">json.Json</span>, cwd: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">String</span>, <span class="ty">String</span>) {
+  <span class="kw">use</span> path <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">require_string</span>(input, <span class="str">"path"</span>))
+  <span class="kw">use</span> content <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">require_string</span>(input, <span class="str">"content"</span>))
+  <span class="kw">use</span> resolved <span class="op"><-</span> <span class="fn">result.try</span>(sandbox.<span class="fn">resolve</span>(path, cwd))
+  <span class="kw">use</span> _ <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">simplifile.create_directory_all</span>(<span class="fn">parent</span>(resolved)))
+  <span class="kw">use</span> _ <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">simplifile.write</span>(resolved, content))
+  <span class="fn">Ok</span>(<span class="str">"Wrote "</span> <> <span class="fn">int.to_string</span>(<span class="fn">string.byte_size</span>(content)) <> <span class="str">" bytes to "</span> <> path)
+}
+
+<span class="kw">pub fn</span> <span class="fn">edit_file</span>(input: <span class="ty">json.Json</span>, cwd: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">String</span>, <span class="ty">String</span>) {
+  <span class="kw">use</span> path <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">require_string</span>(input, <span class="str">"path"</span>))
+  <span class="kw">use</span> old_text <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">require_string</span>(input, <span class="str">"old_text"</span>))
+  <span class="kw">use</span> new_text <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">require_string</span>(input, <span class="str">"new_text"</span>))
+  <span class="kw">use</span> resolved <span class="op"><-</span> <span class="fn">result.try</span>(sandbox.<span class="fn">resolve</span>(path, cwd))
+  <span class="kw">use</span> content <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">simplifile.read</span>(resolved))
+  <span class="kw">use</span> edited <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">replace_once</span>(content, old_text, new_text, path))
+  <span class="kw">use</span> _ <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">simplifile.write</span>(resolved, edited))
+  <span class="fn">Ok</span>(<span class="str">"Edited "</span> <> path)
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);font-style:italic;margin-top:1rem;">
+    The <code>edit_file</code> handler replaces only the <em>first</em> occurrence of <code>old_text</code> (matching Claude Code&rsquo;s real tool behaviour). Single-occurrence replacement forces the model to be precise about what it wants to change. The <code>require_string</code> helper extracts a field from the JSON input or returns <code>Error("Missing parameter: ...")</code> &mdash; keeping the handler bodies clean.
+  </p>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">Updated dispatch in agent.gleam</h4>
+
+  <div class="code-block">
+    <div class="code-label">The only change to agent.gleam — one case branch per new tool</div>
+    <pre><code><span class="kw">fn</span> <span class="fn">execute_tool</span>(name: <span class="ty">String</span>, input: <span class="ty">json.Json</span>, state: <span class="ty">AgentState</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">ContentBlock</span>, <span class="ty">String</span>) {
+  <span class="kw">case</span> name {
+    <span class="str">"bash"</span> <span class="op">-></span> <span class="fn">execute_bash</span>(input, state.cwd)
+    <span class="str">"read_file"</span> <span class="op">-></span> <span class="fn">wrap_file_result</span>(file_ops.<span class="fn">read_file</span>(input, state.cwd))
+    <span class="str">"write_file"</span> <span class="op">-></span> <span class="fn">wrap_file_result</span>(file_ops.<span class="fn">write_file</span>(input, state.cwd))
+    <span class="str">"edit_file"</span> <span class="op">-></span> <span class="fn">wrap_file_result</span>(file_ops.<span class="fn">edit_file</span>(input, state.cwd))
+    <span class="kw">other</span> <span class="op">-></span> <span class="fn">Ok</span>(<span class="fn">unknown_tool_error</span>(other))
+  }
+}</code></pre>
+  </div>
+
+  <div class="run-box">
+    <span class="run-icon">$</span>
+    <span class="run-cmd">gleam test</span>
+    <span style="color:var(--text-faint);margin-left:auto;">Sandbox rejects "../escape" paths</span>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 3 ═══════════════ -->
+<section class="stage" id="stage-3">
+  <div class="stage-header">
+    <span class="stage-number">Stage 3</span>
+    <h2 class="stage-title">Todo Tool</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Give the agent a structured notepad. The todo list stays visible near the end of the context window as a tool result, fighting instruction-following decay. Add a nag that reminds the agent to update its plan after N turns of inactivity.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Pure Functional State</h4>
+    <p>Swift uses a <code>class TodoManager</code> with mutable <code>items</code>. In Gleam, the todo list is a <code>List(TodoItem)</code> field on <code>AgentState</code>. Every change produces a new <code>AgentState</code> record via the record update syntax <code>AgentState(..old, todos: new_todos)</code>. No mutation, no shared references, trivially testable.</p>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">New file this stage</h4>
+
+  <div class="file-tree">
+    <span class="i2"><span class="new">internal/todo.gleam</span> <span class="comment">&larr; TodoItem, validation, rendering</span></span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/todo.gleam</div>
+    <pre><code><span class="kw">pub type</span> <span class="ty">TodoStatus</span> { <span class="cons">Pending</span>; <span class="cons">InProgress</span>; <span class="cons">Completed</span> }
+
+<span class="kw">pub type</span> <span class="ty">TodoItem</span> {
+  <span class="cons">TodoItem</span>(id: <span class="ty">String</span>, text: <span class="ty">String</span>, status: <span class="ty">TodoStatus</span>)
+}
+
+<span class="kw">pub const</span> max_items = <span class="num">20</span>
+
+<span class="co">// Validates and replaces the entire list (no incremental diffs)</span>
+<span class="kw">pub fn</span> <span class="fn">validate</span>(items: <span class="ty">List</span>(<span class="ty">TodoItem</span>)) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">List</span>(<span class="ty">TodoItem</span>), <span class="ty">String</span>) {
+  <span class="kw">case</span> <span class="fn">list.length</span>(items) <span class="op">></span> max_items {
+    <span class="cons">True</span> <span class="op">-></span> <span class="fn">Error</span>(<span class="str">"Too many items (max 20)"</span>)
+    <span class="cons">False</span> <span class="op">-></span> <span class="kw">case</span> <span class="fn">list.filter</span>(items, in_progress) <span class="op">|></span> <span class="fn">list.length</span> <span class="op">></span> <span class="num">1</span> {
+      <span class="cons">True</span> <span class="op">-></span> <span class="fn">Error</span>(<span class="str">"Only one task may be in-progress at a time"</span>)
+      <span class="cons">False</span> <span class="op">-></span> <span class="fn">Ok</span>(items)
+    }
+  }
+}
+
+<span class="kw">pub fn</span> <span class="fn">render</span>(items: <span class="ty">List</span>(<span class="ty">TodoItem</span>)) <span class="op">-></span> <span class="ty">String</span> {
+  <span class="kw">case</span> items {
+    [] <span class="op">-></span> <span class="str">"No todos."</span>
+    _ <span class="op">-></span> {
+      <span class="kw">let</span> lines = <span class="fn">list.map</span>(items, <span class="kw">fn</span>(i) { <span class="fn">marker</span>(i.status) <> <span class="str">" "</span> <> i.text })
+      <span class="kw">let</span> done = items <span class="op">|></span> <span class="fn">list.filter</span>(fn(i) { i.status <span class="op">==</span> <span class="cons">Completed</span> }) <span class="op">|></span> <span class="fn">list.length</span>
+      <span class="fn">string.join</span>(lines, <span class="str">"\n"</span>) <> <span class="str">"\n("</span> <> <span class="fn">int.to_string</span>(done) <> <span class="str">"/"</span>
+        <> <span class="fn">int.to_string</span>(<span class="fn">list.length</span>(items)) <> <span class="str">" completed)"</span>
+    }
+  }
+}
+
+<span class="kw">fn</span> <span class="fn">marker</span>(s: <span class="ty">TodoStatus</span>) <span class="op">-></span> <span class="ty">String</span> {
+  <span class="kw">case</span> s { <span class="cons">Pending</span> <span class="op">-></span> <span class="str">"[ ]"</span>; <span class="cons">InProgress</span> <span class="op">-></span> <span class="str">"[>]"</span>; <span class="cons">Completed</span> <span class="op">-></span> <span class="str">"[x]"</span> }
+}</code></pre>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">Changes to AgentState and the loop</h4>
+
+  <p style="color:var(--text-dim);">
+    <code>AgentState</code> gains two fields: <code>todos: List(TodoItem)</code> and <code>turns_without_todo: Int</code>.
+    The nag fires when <code>turns_without_todo >= 3</code> and the todo list has open items &mdash; a short text block
+    <code style="color:var(--mint-dim);">"Update your todos."</code> is appended after tool results.
+    The counter resets to 0 on any <code>todo</code> tool call.
+  </p>
+
+  <p style="color:var(--text-dim);font-style:italic;margin-top:0.5rem;">
+    This is the first stage where <code>AgentState</code> grows beyond what <code>run</code> needs.
+    The record grows fields as the system grows capabilities &mdash; no inheritance, no subclasses, just data.
+  </p>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 4 ═══════════════ -->
+<section class="stage" id="stage-4">
+  <div class="stage-header">
+    <span class="stage-number">Stage 4</span>
+    <h2 class="stage-title">Subagents</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Let the agent spawn subagents for research tasks. A subagent gets a clean message array, restricted tools, and an iteration cap. Its intermediate history is discarded &mdash; only the final text returns to the parent, keeping the parent&rsquo;s context clean.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Parameterisation, Not Inheritance</h4>
+    <p>Swift extracts the loop into a method and returns a tuple <code>(text, messages)</code>. In Gleam, the loop already takes state as a parameter. A subagent calls <code>agent_loop</code> with a fresh <code>AgentState</code> (empty messages, restricted tool list) and <strong>discards</strong> the returned messages. The parent calls it with its accumulated messages and <strong>keeps</strong> the returned messages. Same function, different usage &mdash; pure parameterisation.</p>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">LoopConfig record</h4>
+
+  <div class="code-block">
+    <div class="code-label">Add to src/claude_code/agent.gleam</div>
+    <pre><code><span class="kw">pub type</span> <span class="ty">LoopConfig</span> {
+  <span class="cons">LoopConfig</span>(
+    tool_names: <span class="ty">List</span>(<span class="ty">String</span>),  <span class="co">// which tools are available (allowlist)</span>
+    max_iterations: <span class="ty">Int</span>,
+    enable_nag: <span class="ty">Bool</span>,
+  )
+}
+
+<span class="kw">pub fn</span> <span class="fn">config_default</span>() <span class="op">-></span> <span class="ty">LoopConfig</span> {
+  <span class="cons">LoopConfig</span>(
+    tool_names: [<span class="str">"bash"</span>, <span class="str">"read_file"</span>, <span class="str">"write_file"</span>, <span class="str">"edit_file"</span>, <span class="str">"todo"</span>, <span class="str">"agent"</span>],
+    max_iterations: <span class="num">999_999</span>, enable_nag: <span class="cons">True</span>,
+  )
+}
+
+<span class="kw">pub fn</span> <span class="fn">config_subagent</span>() <span class="op">-></span> <span class="ty">LoopConfig</span> {
+  <span class="cons">LoopConfig</span>(
+    tool_names: [<span class="str">"bash"</span>, <span class="str">"read_file"</span>, <span class="str">"write_file"</span>, <span class="str">"edit_file"</span>],
+    max_iterations: <span class="num">30</span>, enable_nag: <span class="cons">False</span>,
+  )
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);margin-top:1rem;">
+    The subagent config uses an <strong>allowlist</strong> of tool names. The <code>agent</code> tool is excluded (preventing unbounded recursion), as is <code>todo</code> (the subagent shouldn&rsquo;t maintain its own plan). The 30-iteration cap prevents runaway subagents. The <code>agent_loop</code> function receives the config and filters tool definitions accordingly before each API call.
+  </p>
+
+  <div class="code-block">
+    <div class="code-label">Subagent handler in agent.gleam</div>
+    <pre><code><span class="kw">fn</span> <span class="fn">execute_subagent</span>(input: <span class="ty">json.Json</span>, state: <span class="ty">AgentState</span>) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">String</span>, <span class="ty">String</span>) {
+  <span class="kw">use</span> prompt <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">require_string</span>(input, <span class="str">"prompt"</span>))
+  <span class="co">// Fresh state: clean messages, restricted config</span>
+  <span class="kw">let</span> sub_state = <span class="cons">AgentState</span>(..state,
+    messages: [<span class="fn">user_msg</span>(prompt)],
+    config: <span class="fn">config_subagent</span>(),
+    todos: [], turns_without_todo: <span class="num">0</span>,
+  )
+  <span class="kw">use</span> result <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">agent_loop</span>(sub_state, <span class="num">0</span>))
+  <span class="kw">let</span> <span class="fn">#</span>(text, _discarded_state) = result
+  <span class="co">// Subagent's messages are intentionally dropped — context isolation</span>
+  <span class="fn">Ok</span>(<span class="fn">truncate</span>(text, <span class="num">10_000</span>))
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);font-style:italic;margin-top:1rem;">
+    The discarded <code>_discarded_state</code> binding makes the intent explicit: the subagent&rsquo;s conversation history is thrown away. Only the final text comes back. The parent&rsquo;s context doesn&rsquo;t bloat with the subagent&rsquo;s intermediate file reads and shell output.
+  </p>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 5 ═══════════════ -->
+<section class="stage" id="stage-5">
+  <div class="stage-header">
+    <span class="stage-number">Stage 5</span>
+    <h2 class="stage-title">Skill Loading</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Add a two-layer skill system. Layer 1 embeds one-line descriptions in the system prompt (~100 tokens total). Layer 2 loads the full skill body only when the model explicitly calls <code>load_skill</code> &mdash; knowledge arrives on demand, costing tokens only when needed.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Startup-Time Loading, Immutable Lookup</h4>
+    <p>Swift parses YAML frontmatter character-by-character. Gleam does the same with string scanning &mdash; no YAML library needed. The <code>SkillLoader</code> is a record with a <code>Dict(String, Skill)</code> built at startup. All lookups are pure dictionary reads. The system prompt builder receives the descriptions string as a parameter; an empty string means no skills are configured (graceful degradation).</p>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">New file this stage</h4>
+
+  <div class="file-tree">
+    <span class="i2"><span class="new">internal/skill_loader.gleam</span> <span class="comment">&larr; SKILL.md parsing, descriptions, content lookup</span></span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/skill_loader.gleam (key parts)</div>
+    <pre><code><span class="kw">pub type</span> <span class="ty">Skill</span> {
+  <span class="cons">Skill</span>(name: <span class="ty">String</span>, description: <span class="ty">String</span>, body: <span class="ty">String</span>)
+}
+
+<span class="kw">pub type</span> <span class="ty">SkillLoader</span> {
+  <span class="cons">SkillLoader</span>(skills: <span class="ty">Dict</span>(<span class="ty">String</span>, <span class="ty">Skill</span>))
+}
+
+<span class="co">// Scans skills/{name}/SKILL.md for each subdirectory</span>
+<span class="kw">pub fn</span> <span class="fn">load</span>(directory: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">SkillLoader</span> {
+  <span class="kw">case</span> <span class="fn">simplifile.is_directory</span>(directory) {
+    <span class="cons">False</span> <span class="op">-></span> <span class="cons">SkillLoader</span>(skills: <span class="fn">dict.new</span>())
+    <span class="cons">True</span> <span class="op">-></span> {
+      <span class="kw">let</span> entries = <span class="fn">simplifile.read_directory</span>(directory) <span class="op">|></span> <span class="fn">result.unwrap</span>([])
+      <span class="kw">let</span> skills = entries
+        <span class="op">|></span> <span class="fn">list.filter_map</span>(<span class="fn">try_load</span>(directory, _))
+      <span class="cons">SkillLoader</span>(skills: <span class="fn">dict.from_list</span>(skills))
+    }
+  }
+}
+
+<span class="co">// Cheap layer: ~1 line per skill (~100 tokens total)</span>
+<span class="kw">pub fn</span> <span class="fn">menu</span>(loader: <span class="ty">SkillLoader</span>) <span class="op">-></span> <span class="ty">String</span> {
+  <span class="kw">case</span> <span class="fn">dict.is_empty</span>(loader.skills) {
+    <span class="cons">True</span> <span class="op">-></span> <span class="str">""</span>
+    <span class="cons">False</span> <span class="op">-></span> loader.skills
+      <span class="op">|></span> <span class="fn">dict.values</span>
+      <span class="op">|></span> <span class="fn">list.sort</span>(<span class="kw">fn</span>(a, b) { <span class="fn">string.compare</span>(a.name, b.name) <span class="op">==</span> <span class="cons">Lt</span> })
+      <span class="op">|></span> <span class="fn">list.map</span>(<span class="kw">fn</span>(s) { <span class="str">"  - "</span> <> s.name <> <span class="str">": "</span> <> s.description })
+      <span class="op">|></span> <span class="fn">string.join</span>(<span class="str">"\n"</span>)
+  }
+}
+
+<span class="co">// Expensive layer: full body, only on demand</span>
+<span class="kw">pub fn</span> <span class="fn">body_for</span>(loader: <span class="ty">SkillLoader</span>, name: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">String</span> {
+  <span class="kw">case</span> <span class="fn">dict.get</span>(loader.skills, name) {
+    <span class="cons">Ok</span>(skill) <span class="op">-></span> <span class="str">"<skill name=\""</span> <> name <> <span class="str">"\">\n"</span> <> skill.body <> <span class="str">"\n</skill>"</span>
+    <span class="cons">Error</span>(_) <span class="op">-></span> <span class="str">"Unknown skill '"</span> <> name <> <span class="str">"'"</span>
+  }
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);font-style:italic;margin-top:1rem;">
+    Skills live in <code>skills/{name}/SKILL.md</code> with YAML frontmatter for <code>name</code> and <code>description</code>.
+    The frontmatter parser is a simple line-by-line scan between <code>---</code> delimiters. Subagents automatically inherit <code>load_skill</code> &mdash; the allowlist only excludes <code>agent</code> and <code>todo</code>.
+  </p>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 6 ═══════════════ -->
+<section class="stage" id="stage-6">
+  <div class="stage-header">
+    <span class="stage-number">Stage 6</span>
+    <h2 class="stage-title">Context Compaction</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Build three compression layers so the agent can run indefinitely. Micro-compact replaces old tool results with placeholders. Auto-compact triggers LLM summarisation when estimated tokens cross a threshold. The <code>compact</code> tool lets the model request summarisation itself.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Pure Data Transformation</h4>
+    <p>All three compaction layers are pure functions: <code>List(Message) → List(Message)</code>. Token estimation uses <code>byte_size(encoded_json) / 4</code> as a heuristic &mdash; no tokenizer dependency. Micro-compact runs <em>before</em> every API call (structural pruning). Auto-compact checks the threshold after micro-compact. Manual compact fires <em>after</em> tool results are appended. On failure, compaction returns the original messages unchanged &mdash; compaction must never crash the loop.</p>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">New file this stage</h4>
+
+  <div class="file-tree">
+    <span class="i2"><span class="new">internal/compact.gleam</span> <span class="comment">&larr; Micro-compact, auto-compact, token estimator</span></span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/compact.gleam (signatures + key logic)</div>
+    <pre><code><span class="kw">pub const</span> keep_recent = <span class="num">3</span>  <span class="co">// Preserve the 3 most recent tool results untouched</span>
+
+<span class="co">// Layer 1: structural pruning — replaces old tool results with short placeholders</span>
+<span class="kw">pub fn</span> <span class="fn">micro_compact</span>(messages: <span class="ty">List</span>(<span class="ty">Message</span>)) <span class="op">-></span> <span class="ty">List</span>(<span class="ty">Message</span>)
+
+<span class="co">// Layer 2: threshold-triggered LLM summarisation</span>
+<span class="kw">pub fn</span> <span class="fn">auto_compact</span>(
+  messages: <span class="ty">List</span>(<span class="ty">Message</span>),
+  client: <span class="ty">Client</span>, model: <span class="ty">String</span>,
+  transcripts_dir: <span class="ty">String</span>, focus: <span class="ty">Option</span>(<span class="ty">String</span>),
+) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">List</span>(<span class="ty">Message</span>), <span class="ty">String</span>)
+
+<span class="co">// Rough token count — avoids a tokenizer dependency</span>
+<span class="kw">pub fn</span> <span class="fn">estimate_tokens</span>(messages: <span class="ty">List</span>(<span class="ty">Message</span>)) <span class="op">-></span> <span class="ty">Int</span> {
+  messages <span class="op">|></span> <span class="fn">json.to_string</span> <span class="op">|></span> <span class="fn">string.byte_size</span> <span class="op">|></span> <span class="kw">fn</span>(n) { n <span class="op">/</span> <span class="num">4</span> }
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);margin-top:1rem;">
+    Micro-compact scans message content for <code>ToolResult</code> blocks, keeps the 3 most recent, and replaces older ones with <code>"[Previous: used bash]"</code> placeholders. Results shorter than 100 characters are left alone. Auto-compact saves the full transcript as JSONL to <code>.transcripts/</code>, asks the LLM to produce a three-part summary (accomplishments, current state, key decisions), and returns a compressed 2-message conversation.
+  </p>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 7 ═══════════════ -->
+<section class="stage" id="stage-7">
+  <div class="stage-header">
+    <span class="stage-number">Stage 7</span>
+    <h2 class="stage-title">Task System (DAG)</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Build a file-based DAG task store so the agent&rsquo;s plan survives context compaction and process restarts. Each task is a standalone JSON file in <code>.tasks/</code>. Dependencies form a directed acyclic graph via <code>blocked_by</code> / <code>blocks</code> arrays. Auto-incrementing IDs survive restarts by scanning the directory.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>Filesystem as Database</h4>
+    <p>Swift uses <code>FileManager</code> + <code>JSONEncoder/Decoder</code>. Gleam uses <code>simplifile</code> + <code>gleam/json</code>. Each task is one JSON file &mdash; atomic reads and writes, no partial corruption across files. The cascade unblock (when a task completes, remove its ID from every dependent&rsquo;s <code>blocked_by</code>) is a <code>list.fold</code> over the directory listing. The <code>TaskStore</code> record holds the directory path and the next available ID.</p>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">New file this stage</h4>
+
+  <div class="file-tree">
+    <span class="i2"><span class="new">internal/task_store.gleam</span> <span class="comment">&larr; AgentTask, TaskStore, CRUD + cascade unblock</span></span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/task_store.gleam</div>
+    <pre><code><span class="kw">pub type</span> <span class="ty">TaskStatus</span> { <span class="cons">Pending</span>; <span class="cons">InProgress</span>; <span class="cons">Completed</span> }
+
+<span class="kw">pub type</span> <span class="ty">AgentTask</span> {
+  <span class="cons">AgentTask</span>(
+    id: <span class="ty">Int</span>, subject: <span class="ty">String</span>, description: <span class="ty">String</span>,
+    status: <span class="ty">TaskStatus</span>, blocked_by: <span class="ty">List</span>(<span class="ty">Int</span>), blocks: <span class="ty">List</span>(<span class="ty">Int</span>),
+  )
+}
+
+<span class="kw">pub type</span> <span class="ty">TaskStore</span> { <span class="cons">TaskStore</span>(directory: <span class="ty">String</span>, next_id: <span class="ty">Int</span>) }
+
+<span class="kw">pub fn</span> <span class="fn">init</span>(directory: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">TaskStore</span> {
+  <span class="kw">let</span> _ = <span class="fn">simplifile.create_directory_all</span>(directory)
+  <span class="cons">TaskStore</span>(directory:, next_id: <span class="fn">scan_max_id</span>(directory) <span class="op">+</span> <span class="num">1</span>)
+}
+
+<span class="co">// Create returns the new store (with incremented next_id) and the task JSON</span>
+<span class="kw">pub fn</span> <span class="fn">create</span>(
+  store: <span class="ty">TaskStore</span>, subject: <span class="ty">String</span>, description: <span class="ty">String</span>,
+) <span class="op">-></span> <span class="ty">Result</span>(<span class="ty">#</span>(<span class="ty">TaskStore</span>, <span class="ty">String</span>), <span class="ty">String</span>) {
+  <span class="kw">let</span> task = <span class="cons">AgentTask</span>(id: store.next_id, subject:, description:,
+    status: <span class="cons">Pending</span>, blocked_by: [], blocks: [])
+  <span class="kw">use</span> _ <span class="op"><-</span> <span class="fn">result.try</span>(<span class="fn">write_task</span>(store.directory, task))
+  <span class="kw">let</span> store = <span class="cons">TaskStore</span>(..store, next_id: store.next_id <span class="op">+</span> <span class="num">1</span>)
+  <span class="fn">Ok</span>(<span class="fn">#</span>(store, <span class="fn">task_to_json</span>(task)))
+}
+
+<span class="co">// When a task completes, scan all files and remove its ID from blocked_by arrays</span>
+<span class="kw">fn</span> <span class="fn">cascade_unblock</span>(directory: <span class="ty">String</span>, completed_id: <span class="ty">Int</span>) <span class="op">-></span> <span class="ty">Nil</span> {
+  <span class="kw">use</span> files <span class="op"><-</span> <span class="fn">result.unwrap</span>(<span class="fn">simplifile.read_directory</span>(directory), [])
+  <span class="kw">let</span> _ = <span class="fn">list.each</span>(files, <span class="kw">fn</span>(file) {
+    <span class="kw">case</span> <span class="fn">read_task</span>(directory, <span class="fn">extract_id</span>(file)) {
+      <span class="cons">Ok</span>(task) <span class="kw">if</span> <span class="fn">list.contains</span>(task.blocked_by, completed_id) <span class="op">-></span> {
+        <span class="kw">let</span> updated = <span class="cons">AgentTask</span>(..task,
+          blocked_by: <span class="fn">list.filter</span>(task.blocked_by, <span class="kw">fn</span>(id) { id <span class="op">!=</span> completed_id }))
+        <span class="kw">let</span> _ = <span class="fn">write_task</span>(directory, updated)
+      }
+      _ <span class="op">-></span> <span class="cons">Nil</span>
+    }
+  })
+  <span class="cons">Nil</span>
+}</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);margin-top:1rem;">
+    Four new tool handlers: <code>task_create</code>, <code>task_update</code>, <code>task_list</code>, <code>task_get</code>.
+    The subagent allowlist excludes <code>task_create</code> and <code>task_update</code> &mdash; subagents get read-only task access.
+    <code>AgentState</code> gains a <code>task_store: TaskStore</code> field, threaded through the loop alongside messages and todos.
+  </p>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ STAGE 8 ═══════════════ -->
+<section class="stage" id="stage-8">
+  <div class="stage-header">
+    <span class="stage-number">Stage 8</span>
+    <h2 class="stage-title">Background Tasks</h2>
+  </div>
+
+  <div class="goal-box">
+    <h4>Goal</h4>
+    <p>Run slow commands (builds, test suites) in the background while the agent continues working. Results drain as notifications into the agent loop before each API call. The single mutable-state holder in the system is a dedicated OTP actor.</p>
+  </div>
+
+  <div class="gleam-note">
+    <h4>OTP Actor, Not Swift Actor</h4>
+    <p>Swift uses a single <code>actor</code> keyword for thread-safe state. Gleam achieves the same with <strong><code>gleam/otp/actor</code></strong> &mdash; the Erlang OTP gen_server pattern. The background manager is a long-lived process holding a job registry and notification queue. Communication is explicit message passing: <code>Run</code> to start a job, <code>DrainNotifications</code> to collect completed results. No locks, no race conditions, no shared memory. This is the <em>only</em> place in the system where mutable state lives behind a process boundary. Everything else is pure data flow.</p>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">New file this stage</h4>
+
+  <div class="file-tree">
+    <span class="i2"><span class="new">internal/background.gleam</span> <span class="comment">&larr; OTP actor, BackgroundJob, notifications</span></span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label">src/claude_code/internal/background.gleam</div>
+    <pre><code><span class="kw">import</span> gleam/erlang/process.{<span class="kw">type</span> <span class="ty">Subject</span>}
+<span class="kw">import</span> gleam/otp/actor
+<span class="kw">import</span> claude_code/internal/shell
+
+<span class="kw">pub type</span> <span class="ty">JobStatus</span> { <span class="cons">Running</span>; <span class="cons">Completed</span>; <span class="cons">Error</span>; <span class="cons">Timeout</span> }
+
+<span class="kw">pub type</span> <span class="ty">Notification</span> {
+  <span class="cons">Notification</span>(job_id: <span class="ty">String</span>, status: <span class="ty">JobStatus</span>, result: <span class="ty">String</span>)
+}
+
+<span class="co">// Messages the actor understands</span>
+<span class="kw">pub type</span> <span class="ty">Message</span> {
+  <span class="cons">RunJob</span>(command: <span class="ty">String</span>, timeout_s: <span class="ty">Int</span>, reply: <span class="ty">Subject</span>(<span class="ty">String</span>))
+  <span class="cons">Drain</span>(reply: <span class="ty">Subject</span>(<span class="ty">List</span>(<span class="ty">Notification</span>)))
+}
+
+<span class="kw">pub fn</span> <span class="fn">start</span>(cwd: <span class="ty">String</span>) <span class="op">-></span> <span class="ty">Subject</span>(<span class="ty">Message</span>) {
+  <span class="kw">let</span> initial = <span class="cons">State</span>(jobs: <span class="fn">dict.new</span>(), notifications: [], cwd:)
+
+  <span class="fn">actor.new</span>(initial, <span class="kw">fn</span>(state: <span class="ty">State</span>, msg: <span class="ty">Message</span>) {
+    <span class="kw">case</span> msg {
+      <span class="cons">RunJob</span>(command:, timeout_s:, reply:) <span class="op">-></span> {
+        <span class="kw">let</span> job_id = <span class="fn">generate_id</span>()
+        <span class="kw">let</span> job = <span class="cons">Job</span>(id: job_id, command:, status: <span class="cons">Running</span>)
+        <span class="co">// Spawn a separate process to run the command</span>
+        <span class="kw">let</span> _ = <span class="fn">process.spawn</span>(<span class="kw">fn</span>() { <span class="fn">run_and_notify</span>(job_id, command, timeout_s, state.cwd, actor_self) })
+        <span class="fn">process.send</span>(reply, job_id)
+        <span class="fn">actor.Continue</span>(<span class="cons">State</span>(..state, jobs: <span class="fn">dict.insert</span>(state.jobs, job_id, job)))
+      }
+      <span class="cons">Drain</span>(reply:) <span class="op">-></span> {
+        <span class="fn">process.send</span>(reply, state.notifications)
+        <span class="fn">actor.Continue</span>(<span class="cons">State</span>(..state, notifications: []))
+      }
+    }
+  })
+  <span class="op">|></span> <span class="fn">actor.start</span>
+  <span class="op">|></span> <span class="fn">result.unwrap_both</span>
+}</code></pre>
+  </div>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin-top:2rem;">Loop integration</h4>
+
+  <p style="color:var(--text-dim);">
+    Before each API call, the loop drains notifications from the background actor and appends them to the
+    message list as <code>&lt;background-results&gt;</code> XML blocks. If the last message is already from the
+    <code>User</code> role, results append to it; otherwise a new user message is created. A synthetic assistant
+    acknowledgment (<code>"Noted background results."</code>) satisfies the user→assistant turn alternation
+    requirement. <code>LoopConfig</code> gains a <code>drain_background: Bool</code> field &mdash; subagents set it to
+    <code>False</code> to prevent consuming the parent&rsquo;s notifications.
+  </p>
+
+  <p style="color:var(--text-dim);font-style:italic;margin-top:0.5rem;">
+    Two new tool handlers: <code>background_run</code> (sends <code>RunJob</code> to the actor, returns immediately with a job ID)
+    and <code>background_check</code> (returns the current job list from the actor). The agent loop can now fire off a
+    build in the background and continue working while it runs.
+  </p>
+
+  <div class="run-box">
+    <span class="run-icon">$</span>
+    <span class="run-cmd">gleam run</span>
+    <span style="color:var(--text-faint);margin-left:auto;">14 tools, 1 OTP actor, 0 classes</span>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ═══════════════ SUMMARY ═══════════════ -->
+<section class="stage" id="summary">
+  <div class="stage-header">
+    <span class="stage-number">Recap</span>
+    <h2 class="stage-title">Architecture Summary</h2>
+  </div>
+
+  <p style="color:var(--text-dim);margin-bottom:1.5rem;">
+    What started as a single Gleam file in Stage 0 is now a system of 14 tools orchestrated by an invariant
+    recursive loop. Each stage added exactly one mechanism &mdash; the loop at the centre never changed shape.
+  </p>
+
+  <table class="prog-table">
+    <tr><th>Stage</th><th>Mechanism</th><th>Files Added</th></tr>
+    <tr><td class="stage-col">0</td><td class="mech-col">Project scaffold, dependencies</td><td class="file-col">gleam.toml</td></tr>
+    <tr><td class="stage-col">1</td><td class="mech-col">API client, agent loop, bash tool, REPL</td><td class="file-col">api.gleam, agent.gleam, internal/shell.gleam</td></tr>
+    <tr><td class="stage-col">2</td><td class="mech-col">file_ops, sandbox, dispatch</td><td class="file-col">internal/sandbox.gleam, internal/file_ops.gleam</td></tr>
+    <tr><td class="stage-col">3</td><td class="mech-col">Todo tool, nag system</td><td class="file-col">internal/todo.gleam</td></tr>
+    <tr><td class="stage-col">4</td><td class="mech-col">Subagents, LoopConfig</td><td class="file-col">(changes to agent.gleam)</td></tr>
+    <tr><td class="stage-col">5</td><td class="mech-col">Two-layer skill loading</td><td class="file-col">internal/skill_loader.gleam</td></tr>
+    <tr><td class="stage-col">6</td><td class="mech-col">Micro-compact, auto-compact, compact tool</td><td class="file-col">internal/compact.gleam</td></tr>
+    <tr><td class="stage-col">7</td><td class="mech-col">File-based task DAG, cascade unblock</td><td class="file-col">internal/task_store.gleam</td></tr>
+    <tr><td class="stage-col">8</td><td class="mech-col">OTP background actor, drain notifications</td><td class="file-col">internal/background.gleam</td></tr>
+  </table>
+
+  <h4 style="font-family:var(--font-mono);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);margin:2rem 0 1rem;">Final module layout</h4>
+
+  <div class="file-tree">
+    <span class="dir">src/</span><br>
+    <span class="i1"><span class="file">claude_code.gleam</span> <span class="comment">REPL + main</span></span><br>
+    <span class="i1"><span class="dir">claude_code/</span></span><br>
+    <span class="i2"><span class="file">agent.gleam</span> <span class="comment">AgentState, agent_loop, tool dispatch</span></span><br>
+    <span class="i2"><span class="file">api.gleam</span> <span class="comment">HTTP client, API types, JSON codecs</span></span><br>
+    <span class="i2"><span class="dir">internal/</span> <span class="comment">(implementation details — not public API)</span></span><br>
+    <span class="i2"><span class="i1"><span class="file">shell.gleam</span></span></span><br>
+    <span class="i2"><span class="i1"><span class="file">sandbox.gleam</span></span></span><br>
+    <span class="i2"><span class="i1"><span class="file">file_ops.gleam</span></span></span><br>
+    <span class="i2"><span class="i1"><span class="file">todo.gleam</span></span></span><br>
+    <span class="i2"><span class="i1"><span class="file">skill_loader.gleam</span></span></span><br>
+    <span class="i2"><span class="i1"><span class="file">compact.gleam</span></span></span><br>
+    <span class="i2"><span class="i1"><span class="file">task_store.gleam</span></span></span><br>
+    <span class="i2"><span class="i1"><span class="file">background.gleam</span></span></span>
+  </div>
+
+  <div class="summary-grid" style="margin-top:1.5rem;">
+    <div class="summary-item"><span class="tn">bash</span><br><span class="ts">Stage 1</span></div>
+    <div class="summary-item"><span class="tn">read_file</span><br><span class="ts">Stage 2</span></div>
+    <div class="summary-item"><span class="tn">write_file</span><br><span class="ts">Stage 2</span></div>
+    <div class="summary-item"><span class="tn">edit_file</span><br><span class="ts">Stage 2</span></div>
+    <div class="summary-item"><span class="tn">todo</span><br><span class="ts">Stage 3</span></div>
+    <div class="summary-item"><span class="tn">agent</span><br><span class="ts">Stage 4</span></div>
+    <div class="summary-item"><span class="tn">load_skill</span><br><span class="ts">Stage 5</span></div>
+    <div class="summary-item"><span class="tn">compact</span><br><span class="ts">Stage 6</span></div>
+    <div class="summary-item"><span class="tn">task_create</span><br><span class="ts">Stage 7</span></div>
+    <div class="summary-item"><span class="tn">task_update</span><br><span class="ts">Stage 7</span></div>
+    <div class="summary-item"><span class="tn">task_list</span><br><span class="ts">Stage 7</span></div>
+    <div class="summary-item"><span class="tn">task_get</span><br><span class="ts">Stage 7</span></div>
+    <div class="summary-item"><span class="tn">bg_run</span><br><span class="ts">Stage 8</span></div>
+    <div class="summary-item"><span class="tn">bg_check</span><br><span class="ts">Stage 8</span></div>
+  </div>
+
+  <div class="principles" style="margin-top:2.5rem;">
+    <h3>What Makes This &ldquo;The Gleam Way&rdquo;</h3>
+    <ul class="principles-list">
+      <li><strong>AgentState is a record, not an object.</strong> Every &ldquo;method&rdquo; is a function that takes state and returns a new state. The record update syntax <code>AgentState(..old, field: new_value)</code> makes evolution explicit.</li>
+      <li><strong>The loop is a tail-recursive function.</strong> No <code>while true</code>, no mutable loop variables. Each iteration builds the next iteration&rsquo;s arguments and recurses. The BEAM optimises tail calls into jumps.</li>
+      <li><strong>Tool dispatch is a <code>case</code> expression.</strong> No dictionary of closures, no protocol registry. One branch per tool. Adding a tool is one new branch. The compiler checks exhaustiveness.</li>
+      <li><strong>Result is the universal error type.</strong> Every fallible operation returns <code>Result(a, e)</code>. Chaining uses <code>use</code> expressions and <code>result.try</code>. Error types are plain strings that compose naturally.</li>
+      <li><strong>One OTP actor for the one mutable spot.</strong> Background job state lives behind a process boundary. Everything else &mdash; messages, todos, tasks, config &mdash; is immutable data threaded through function parameters.</li>
+      <li><strong>Filesystem as durable memory.</strong> Tasks are JSON files. Transcripts are JSONL files. Skills are markdown files. The filesystem is the database; <code>simplifile</code> is the query engine.</li>
+      <li><strong>Every stage adds one thing.</strong> The loop shape from Stage 1 (API call → check stop_reason → execute tools → append results → recurse) hasn&rsquo;t changed. Tools are the variable; the loop is the invariant.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="footer">
+  <div class="footer-col">
+    <h5>Original Series</h5>
+    <p><a href="https://ivanmagda.dev/posts/s00-bootstrapping-the-project" target="_blank" rel="noopener">Ivan Magda &mdash; Swift Series</a></p>
+    <p><a href="https://github.com/ivan-magda/swift-claude-code" target="_blank" rel="noopener">swift-claude-code on GitHub</a></p>
+  </div>
+  <div class="footer-col">
+    <h5>Gleam Resources</h5>
+    <p><a href="https://gleam.run" target="_blank" rel="noopener">gleam.run</a></p>
+    <p><a href="https://hexdocs.pm/gleam_stdlib" target="_blank" rel="noopener">gleam_stdlib docs</a></p>
+    <p><a href="https://hexdocs.pm/gleam_httpc" target="_blank" rel="noopener">gleam_httpc docs</a></p>
+    <p><a href="https://hexdocs.pm/simplifile" target="_blank" rel="noopener">simplifile docs</a></p>
+  </div>
+  <div class="footer-col">
+    <h5>API Reference</h5>
+    <p><a href="https://docs.anthropic.com/en/api" target="_blank" rel="noopener">Anthropic Messages API</a></p>
+    <p><a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use" target="_blank" rel="noopener">Tool Use Docs</a></p>
+  </div>
+</footer>
+
+</main>
+
+<script>
+(function() {
+  const navLinks = document.querySelectorAll('.nav-link');
+  const stages = document.querySelectorAll('.stage, .hero');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id || 'hero';
+        navLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  stages.forEach(s => observer.observe(s));
+})();
+</script>
+
+</body>
+</html>
