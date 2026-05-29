@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code in Gleam — Line by Line</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f4efe4;--card:#fffdf7;--card2:#f7f1e6;--ink:#211d17;--ink2:#473f33;
+  --muted:#776c5b;--faint:#9a8f7c;--line:#ddd2bc;--line2:#c8bb9f;
+  --gleam:#c81e6e;--gleam-soft:#fbe7f0;--gleam-ink:#86134a;
+  --swift:#d9531e;--swift-soft:#fceada;--swift-ink:#993511;
+  --blue:#2f6f9e;--green:#2e7d57;
+  --code-bg:#1c1813;--code-bar:#26211a;--code-line:#322b22;--code-hl:#3a2f1c;
+  --c-kw:#ffaff3;--c-ty:#ffc24d;--c-str:#7ee8c9;--c-co:#8c8170;--c-fn:#8ec8ff;--c-num:#ff9bac;--c-va:#e9e1d4;
+  --nav:280px;--max:920px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Source Serif 4',Georgia,serif;font-size:1.08rem;line-height:1.7;color:var(--ink);background:var(--paper);
+  background-image:radial-gradient(var(--line) 0.5px,transparent 0.5px);background-size:22px 22px;-webkit-font-smoothing:antialiased}
+.sidebar{position:fixed;top:0;left:0;width:var(--nav);height:100vh;overflow-y:auto;padding:1.6rem 1.3rem;
+  border-right:1px solid var(--line2);background:rgba(244,239,228,.94);backdrop-filter:blur(6px);z-index:50;
+  font-family:'JetBrains Mono',monospace;font-size:.78rem}
+.sidebar::-webkit-scrollbar{width:5px}.sidebar::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+.brand{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.05rem;color:var(--ink);letter-spacing:-.02em;display:block;cursor:pointer}
+.brand b{color:var(--gleam)}
+.brand-sub{color:var(--faint);font-size:.64rem;margin:.2rem 0 1.4rem;display:block}
+.nav-sec{color:var(--faint);text-transform:uppercase;letter-spacing:.1em;font-size:.6rem;margin:1.2rem 0 .4rem;font-weight:500}
+.nav-link{display:flex;gap:.55rem;color:var(--muted);text-decoration:none;padding:.26rem 0;cursor:pointer;transition:color .15s,transform .15s}
+.nav-link:hover{color:var(--gleam);transform:translateX(2px)}
+.nav-link.active{color:var(--gleam);font-weight:600}
+.nav-n{color:var(--faint);width:1.1rem;flex-shrink:0}
+.nav-link.active .nav-n{color:var(--gleam)}
+main{margin-left:var(--nav);max-width:none;padding:3rem clamp(1.25rem,2.5vw,3rem) 7rem}
+.view{display:none}.view.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.kicker{display:inline-flex;gap:.5rem;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.68rem;
+  text-transform:uppercase;letter-spacing:.12em;color:var(--muted);border:1px solid var(--line2);background:var(--card);
+  padding:.32rem .8rem;border-radius:2px;margin-bottom:1.2rem}
+.kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--gleam)}
+h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(2rem,4vw,3rem);line-height:1.07;letter-spacing:-.03em;margin-bottom:1rem}
+h1 em{font-style:normal;color:var(--gleam)}
+h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:1.7rem;letter-spacing:-.02em;margin:0 0 .4rem}
+h3{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:1.18rem;margin:2rem 0 .5rem;letter-spacing:-.01em}
+p{margin:.85rem 0}.lead{font-size:1.18rem;color:var(--ink2)}
+.view-head{display:flex;align-items:baseline;gap:1rem;border-bottom:2px solid var(--ink);padding-bottom:.9rem;margin-bottom:1.4rem}
+.view-n{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gleam);background:var(--gleam-soft);border:1px solid var(--gleam);
+  border-radius:2px;padding:.3rem .55rem;font-weight:600;white-space:nowrap}
+code.inl{font-family:'JetBrains Mono',monospace;font-size:.84em;background:var(--card2);border:1px solid var(--line);border-radius:3px;padding:.05em .35em;color:var(--gleam-ink)}
+.box{background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:1rem 1.25rem;margin:1.3rem 0}
+.box.goal{border-left:4px solid var(--gleam)}
+.box h4{font-family:'JetBrains Mono',monospace;font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gleam-ink);margin-bottom:.4rem;font-weight:600}
+.box p{margin:.4rem 0 0}.box p:first-of-type{margin-top:0}
+.box.refresher{border-left:4px solid var(--blue);background:#eef4f8}
+.box.refresher h4{color:var(--blue)}
+.box.swift{border-left:4px solid var(--swift);background:var(--swift-soft)}
+.box.swift h4{color:var(--swift-ink)}
+.filerow{display:flex;align-items:center;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--muted);margin:1.6rem 0 .5rem}
+.filerow .dot{width:.7rem;height:.7rem;border-radius:50%;background:var(--gleam)}
+.filerow b{color:var(--ink)}
+.view>h1,.view>h2,.view>h3,.view>p,.view>.view-head,.view>.box,.view>.diagram,.view>table.tbl,.view>.pager{max-width:880px}
+.code-top{position:sticky;top:0;left:0;z-index:2;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:#b7ac99;background:var(--code-bar);border-bottom:1px solid var(--code-line);padding:.5rem .9rem;letter-spacing:.03em}
+.walk{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,400px);gap:1.25rem;align-items:start;margin:1rem 0 2rem}
+.code{background:var(--code-bg);border:1px solid var(--code-line);border-radius:10px;overflow:auto;margin:0;position:sticky;top:1rem;max-height:calc(100vh - 2rem)}
+.code .cl{display:flex;font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:1.62;white-space:pre;width:max-content;min-width:100%}
+.code .cl .lno{position:sticky;left:0;z-index:1;width:3rem;flex-shrink:0;text-align:right;padding:0 .9rem 0 .8rem;color:#5b5346;user-select:none;background:var(--code-bg);border-right:1px solid var(--code-line)}
+.code .cl .src{padding:0 1.1rem 0 .9rem;color:var(--c-va)}
+.code .cl.hl{background:var(--code-hl)}
+.code .cl.hl .lno{color:var(--c-ty);background:var(--code-hl)}
+.code .cl.flash{animation:flash 1.2s ease}
+@keyframes flash{0%,100%{background:transparent}30%{background:var(--code-hl)}}
+.notes{display:flex;flex-direction:column;gap:.55rem}
+.walk .filerow{margin-top:0}
+.kw{color:var(--c-kw)}.ty{color:var(--c-ty)}.str{color:var(--c-str)}.co{color:var(--c-co);font-style:italic}
+.fn{color:var(--c-fn)}.num{color:var(--c-num)}.va{color:var(--c-va)}
+.notes{display:flex;flex-direction:column;gap:.6rem}
+.note{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:.7rem .85rem;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.note:hover{border-color:var(--gleam);box-shadow:0 1px 8px rgba(200,30,110,.08)}
+.note .lb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gleam-ink);background:var(--gleam-soft);border:1px solid var(--line2);
+  border-radius:100px;padding:.05rem .5rem;margin-bottom:.35rem;display:inline-block}
+.note p{margin:.2rem 0 0;font-size:.95rem;color:var(--ink2);line-height:1.5}
+.note code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:var(--card2);border:1px solid var(--line);border-radius:3px;padding:.03em .3em;color:var(--gleam-ink)}
+details.q{margin-top:.5rem;border-top:1px dashed var(--line2);padding-top:.45rem}
+details.q summary{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.85rem;color:var(--ink);cursor:pointer;list-style:none;display:flex;gap:.45rem;align-items:flex-start}
+details.q summary::-webkit-details-marker{display:none}
+details.q summary::before{content:"?";flex-shrink:0;width:1.15rem;height:1.15rem;border-radius:50%;background:var(--ink);color:var(--paper);
+  font-size:.78rem;display:inline-flex;align-items:center;justify-content:center;margin-top:.05rem}
+details.q[open] summary::before{content:"\2713";background:var(--green)}
+details.q .a{margin-top:.45rem;font-size:.92rem;color:var(--ink2);padding-left:1.6rem}
+.diagram{background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:1.4rem;margin:1.3rem 0}
+.dcap{font-family:'JetBrains Mono',monospace;font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:1rem}
+.dcap::before{content:"\25C7  ";color:var(--gleam)}
+.frow{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;justify-content:center}
+.fcol{display:flex;flex-direction:column;gap:.5rem;align-items:center}
+.nd{border:1px solid var(--line2);border-radius:9px;padding:.55rem .8rem;background:var(--card2);font-family:'JetBrains Mono',monospace;font-size:.74rem;text-align:center;line-height:1.35}
+.nd small{display:block;color:var(--muted);font-size:.64rem;margin-top:.2rem}
+.nd.gl{border-color:var(--gleam);background:var(--gleam-soft);color:var(--gleam-ink)}
+.nd.ink{border-color:var(--ink2);background:var(--ink);color:#e9e1d4}
+.nd.dash{border-style:dashed;background:transparent}
+.ar{color:var(--faint);font-size:1.15rem;font-family:'JetBrains Mono',monospace}
+.loopback{margin-top:.6rem;border:1px dashed var(--gleam);border-radius:9px;padding:.4rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--gleam-ink);text-align:center;background:var(--gleam-soft)}
+.pager{display:flex;justify-content:space-between;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.pager a{color:var(--gleam-ink);text-decoration:none;cursor:pointer;border:1px solid var(--line2);border-radius:6px;padding:.5rem .9rem;background:var(--card)}
+.pager a:hover{border-color:var(--gleam)}
+.modmap{font-family:'JetBrains Mono',monospace;font-size:.74rem}
+table.tbl{width:100%;border-collapse:collapse;font-size:.92rem;margin:1rem 0}
+table.tbl td{padding:.4rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}
+table.tbl td:first-child{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--gleam-ink);white-space:nowrap}
+@media(max-width:1040px){.walk{grid-template-columns:1fr}.code{position:static;max-height:none}.code .cl{font-size:.75rem}}
+@media(max-width:900px){
+  .sidebar{position:relative;width:100%;height:auto;padding:1rem;border-right:none;border-bottom:1px solid var(--line2);display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+  .brand{margin-right:auto}.brand-sub,.nav-sec{display:none}
+  .nav-link{font-size:.66rem;padding:.2rem .5rem;background:var(--card);border:1px solid var(--line);border-radius:100px}
+  main{margin-left:0;padding:1.6rem 1.1rem 4rem}
+}
+</style>
+</head>
+<body>
+<nav class="sidebar" id="nav"></nav>
+<main id="content"></main>
+
+<!-- ===== raw verified source (read by the engine; never HTML-parsed) ===== -->
+<div id="sources" hidden>
+<script type="text/plain" id="src-json_value">
+import gleam/dict
+import gleam/dynamic/decode.{type Decoder}
+import gleam/json.{type Json}
+import gleam/list
+
+pub type JsonValue {
+  JsonObject(fields: List(#(String, JsonValue)))
+  JsonArray(items: List(JsonValue))
+  JsonString(value: String)
+  JsonInt(value: Int)
+  JsonFloat(value: Float)
+  JsonBool(value: Bool)
+  JsonNull
+}
+
+pub fn decoder() -> Decoder(JsonValue) {
+  decode.one_of(decode.map(decode.string, JsonString), or: [
+    decode.map(decode.int, JsonInt),
+    decode.map(decode.float, JsonFloat),
+    decode.map(decode.bool, JsonBool),
+    decode.map(decode.list(decode.recursive(decoder)), JsonArray),
+    decode.map(decode.dict(decode.string, decode.recursive(decoder)), fn(d) {
+      JsonObject(dict.to_list(d))
+    }),
+  ])
+}
+
+pub fn to_json(value: JsonValue) -> Json {
+  case value {
+    JsonObject(fields:) ->
+      json.object(list.map(fields, fn(p) { #(p.0, to_json(p.1)) }))
+    JsonArray(items:) -> json.preprocessed_array(list.map(items, to_json))
+    JsonString(value:) -> json.string(value)
+    JsonInt(value:) -> json.int(value)
+    JsonFloat(value:) -> json.float(value)
+    JsonBool(value:) -> json.bool(value)
+    JsonNull -> json.null()
+  }
+}
+
+pub fn get_string(input: JsonValue, key: String) -> Result(String, String) {
+  case input {
+    JsonObject(fields) ->
+      case list.key_find(fields, key) {
+        Ok(JsonString(value)) -> Ok(value)
+        _ -> Error("Missing string parameter: " <> key)
+      }
+    _ -> Error("Tool input was not a JSON object")
+  }
+}
+</script>
+<script type="text/plain" id="src-json_value_test">
+import claude_code/json_value.{type JsonValue, JsonInt, JsonString}
+import gleam/json
+
+// The one property worth proving: encode, then decode, gives back the
+// original value untouched — the exact thing the agent relies on.
+fn round_trip(value: JsonValue) -> Result(JsonValue, json.DecodeError) {
+  value
+  |> json_value.to_json
+  |> json.to_string
+  |> json.parse(json_value.decoder())
+}
+
+pub fn round_trip_int_test() {
+  assert round_trip(JsonInt(42)) == Ok(JsonInt(42))
+}
+
+pub fn encode_string_test() {
+  assert json.to_string(json_value.to_json(JsonString("hi"))) == "\"hi\""
+}
+// Your turn: add round-trips for JsonString, JsonFloat, JsonBool,
+// then JsonArray, then a single-key JsonObject. Try JsonNull last.
+</script>
+<script type="text/plain" id="src-gleam_toml">
+name = "claude_code"
+version = "1.0.0"
+
+[dependencies]
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+gleam_http = ">= 4.0.0 and < 5.0.0"
+gleam_httpc = ">= 5.0.0 and < 6.0.0"
+gleam_json = ">= 3.1.0 and < 4.0.0"
+simplifile = ">= 2.4.0 and < 3.0.0"
+filepath = ">= 1.1.2 and < 2.0.0"
+envoy = ">= 1.2.0 and < 2.0.0"
+gleam_erlang = ">= 1.3.0 and < 2.0.0"
+gleam_otp = ">= 1.2.0 and < 2.0.0"
+
+[dev_dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"
+</script>
+<script type="text/plain" id="src-api">
+import claude_code/json_value.{type JsonValue}
+import gleam/dynamic/decode.{type Decoder}
+import gleam/http.{Post}
+import gleam/http/request
+import gleam/httpc
+import gleam/int
+import gleam/json.{type Json}
+import gleam/result
+
+pub type Role {
+  User
+  Assistant
+}
+
+pub type ContentBlock {
+  TextBlock(text: String)
+  ToolUseBlock(id: String, name: String, input: JsonValue)
+  ToolResultBlock(tool_use_id: String, content: String, is_error: Bool)
+}
+
+pub type Message {
+  Message(role: Role, content: List(ContentBlock))
+}
+
+pub type StopReason {
+  EndTurn
+  MaxTokens
+  ToolUseStop
+  OtherStop(String)
+}
+
+pub type ApiResponse {
+  ApiResponse(content: List(ContentBlock), stop_reason: StopReason)
+}
+
+pub type ToolDef {
+  ToolDef(name: String, description: String, input_schema: Json)
+}
+
+pub type Client {
+  Client(api_key: String, base_url: String)
+}
+
+pub fn create_message(
+  client: Client,
+  model: String,
+  system_prompt: String,
+  messages: List(Message),
+  tools: List(ToolDef),
+  max_tokens: Int,
+) -> Result(ApiResponse, String) {
+  let body =
+    json.object([
+      #("model", json.string(model)),
+      #("max_tokens", json.int(max_tokens)),
+      #("system", json.string(system_prompt)),
+      #("messages", json.array(messages, encode_message)),
+      #("tools", json.array(tools, encode_tool)),
+    ])
+    |> json.to_string
+
+  use base <- result.try(
+    request.to(client.base_url <> "/v1/messages")
+    |> result.replace_error("Invalid base URL"),
+  )
+
+  let req =
+    base
+    |> request.set_method(Post)
+    |> request.set_header("content-type", "application/json")
+    |> request.set_header("x-api-key", client.api_key)
+    |> request.set_header("anthropic-version", "2023-06-01")
+    |> request.set_body(body)
+
+  use resp <- result.try(
+    httpc.send(req)
+    |> result.map_error(fn(_) { "HTTP transport error" }),
+  )
+
+  case resp.status {
+    200 ->
+      json.parse(resp.body, response_decoder())
+      |> result.map_error(fn(_) { "Failed to decode API response" })
+    code -> Error("API error " <> int.to_string(code) <> ": " <> resp.body)
+  }
+}
+
+fn block_decoder() -> Decoder(ContentBlock) {
+  use kind <- decode.field("type", decode.string)
+  case kind {
+    "text" -> {
+      use text <- decode.field("text", decode.string)
+      decode.success(TextBlock(text:))
+    }
+    "tool_use" -> {
+      use id <- decode.field("id", decode.string)
+      use name <- decode.field("name", decode.string)
+      use input <- decode.field("input", json_value.decoder())
+      decode.success(ToolUseBlock(id:, name:, input:))
+    }
+    other -> decode.failure(TextBlock(text: ""), "ContentBlock: " <> other)
+  }
+}
+
+fn stop_reason_decoder() -> Decoder(StopReason) {
+  use reason <- decode.then(decode.string)
+  case reason {
+    "end_turn" -> decode.success(EndTurn)
+    "max_tokens" -> decode.success(MaxTokens)
+    "tool_use" -> decode.success(ToolUseStop)
+    other -> decode.success(OtherStop(other))
+  }
+}
+
+fn response_decoder() -> Decoder(ApiResponse) {
+  use content <- decode.field("content", decode.list(block_decoder()))
+  use stop_reason <- decode.field("stop_reason", stop_reason_decoder())
+  decode.success(ApiResponse(content:, stop_reason:))
+}
+
+fn encode_message(message: Message) -> Json {
+  let role = case message.role {
+    User -> "user"
+    Assistant -> "assistant"
+  }
+  json.object([
+    #("role", json.string(role)),
+    #("content", json.array(message.content, encode_block)),
+  ])
+}
+
+fn encode_block(block: ContentBlock) -> Json {
+  case block {
+    TextBlock(text:) ->
+      json.object([
+        #("type", json.string("text")),
+        #("text", json.string(text)),
+      ])
+    ToolUseBlock(id:, name:, input:) ->
+      json.object([
+        #("type", json.string("tool_use")),
+        #("id", json.string(id)),
+        #("name", json.string(name)),
+        #("input", json_value.to_json(input)),
+      ])
+    ToolResultBlock(tool_use_id:, content:, is_error:) ->
+      json.object([
+        #("type", json.string("tool_result")),
+        #("tool_use_id", json.string(tool_use_id)),
+        #("content", json.string(content)),
+        #("is_error", json.bool(is_error)),
+      ])
+  }
+}
+
+fn encode_tool(tool: ToolDef) -> Json {
+  json.object([
+    #("name", json.string(tool.name)),
+    #("description", json.string(tool.description)),
+    #("input_schema", tool.input_schema),
+  ])
+}
+</script>
+<script type="text/plain" id="src-agent_loop">
+pub type AgentState {
+  AgentState(
+    client: Client,
+    model: String,
+    system_prompt: String,
+    messages: List(Message),
+    cwd: String,
+    config: LoopConfig,
+    todos: List(TodoItem),
+    idle_turns: Int,
+    skills: SkillLoader,
+    task_store: TaskStore,
+    background: Subject(background.Message),
+  )
+}
+
+pub fn run(
+  state: AgentState,
+  query: String,
+) -> Result(#(String, AgentState), String) {
+  let message = Message(role: User, content: [TextBlock(text: query)])
+  let state =
+    AgentState(..state, messages: list.append(state.messages, [message]))
+  loop(state, 0)
+}
+
+fn loop(
+  state: AgentState,
+  iteration: Int,
+) -> Result(#(String, AgentState), String) {
+  case iteration >= state.config.max_iterations {
+    True -> Ok(#("(stopped: iteration cap reached)", state))
+    False -> {
+      let state = compact_step(state)
+      use response <- result.try(api.create_message(
+        state.client,
+        state.model,
+        state.system_prompt,
+        state.messages,
+        tool_defs(state.config),
+        4096,
+      ))
+      let reply = Message(role: Assistant, content: response.content)
+      let state =
+        AgentState(..state, messages: list.append(state.messages, [reply]))
+
+      case response.stop_reason {
+        ToolUseStop -> {
+          let #(results, state) = run_tools(response.content, state)
+          loop(append_results(state, results), iteration + 1)
+        }
+        _ -> Ok(#(extract_text(response.content), state))
+      }
+    }
+  }
+}
+
+fn run_tools(
+  content: List(ContentBlock),
+  state: AgentState,
+) -> #(List(ContentBlock), AgentState) {
+  list.fold(content, #([], state), fn(acc, block) {
+    let #(results, current) = acc
+    case block {
+      ToolUseBlock(id:, name:, input:) -> {
+        let #(text, is_error, next) = execute_tool(name, input, current)
+        let result = ToolResultBlock(tool_use_id: id, content: text, is_error:)
+        #(list.append(results, [result]), next)
+      }
+      _ -> acc
+    }
+  })
+}
+
+fn extract_text(content: List(ContentBlock)) -> String {
+  content
+  |> list.filter_map(fn(block) {
+    case block {
+      TextBlock(text:) -> Ok(text)
+      _ -> Error(Nil)
+    }
+  })
+  |> string.join("\n")
+}
+</script>
+<script type="text/plain" id="src-shell">
+@external(erlang, "shell_ffi", "os_cmd")
+pub fn execute(command: String, cwd: String) -> Result(String, String)
+</script>
+<script type="text/plain" id="src-shell_erl">
+-module(shell_ffi).
+-export([os_cmd/2]).
+
+os_cmd(Command, Cwd) ->
+    Cmd = binary_to_list(<<"cd '", Cwd/binary, "' && ", Command/binary>>),
+    {ok, unicode:characters_to_binary(os:cmd(Cmd))}.
+</script>
+<script type="text/plain" id="src-stdin">
+@external(erlang, "stdin_ffi", "get_line")
+pub fn get_line(prompt: String) -> Result(String, Nil)
+</script>
+<script type="text/plain" id="src-main">
+import claude_code/agent.{type AgentState}
+import claude_code/internal/background
+import claude_code/internal/skills
+import claude_code/internal/stdin
+import claude_code/internal/tasks
+import envoy
+import filepath
+import gleam/io
+import gleam/result
+import gleam/string
+import simplifile
+
+pub fn main() -> Nil {
+  let cwd = simplifile.current_directory() |> result.unwrap(".")
+  case background.start(cwd) {
+    Error(_) -> io.println("Failed to start background manager")
+    Ok(bg) -> {
+      let api_key = envoy.get("ANTHROPIC_API_KEY") |> result.unwrap("")
+      let model = envoy.get("MODEL_ID") |> result.unwrap("claude-sonnet-4-6")
+      let skill_loader = skills.load(filepath.join(cwd, "skills"))
+      let store = tasks.init(filepath.join(cwd, ".tasks"))
+      repl(agent.new(api_key, model, cwd, skill_loader, store, bg))
+    }
+  }
+}
+
+fn repl(state: AgentState) -> Nil {
+  io.print("> ")
+  case stdin.get_line("") {
+    Error(_) -> io.println("")
+    Ok(line) ->
+      case string.trim(line) {
+        "" -> repl(state)
+        "exit" | "quit" -> Nil
+        query ->
+          case agent.run(state, query) {
+            Ok(#(reply, next)) -> {
+              io.println(reply)
+              repl(next)
+            }
+            Error(message) -> {
+              io.println("Error: " <> message)
+              repl(state)
+            }
+          }
+      }
+  }
+}
+</script>
+<script type="text/plain" id="src-agent_dispatch">
+fn execute_tool(
+  name: String,
+  input: JsonValue,
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case name {
+    "bash" -> stateless(run_bash(input, state.cwd), state)
+    "read_file" -> stateless(file_ops.read_file(input, state.cwd), state)
+    "write_file" -> stateless(file_ops.write_file(input, state.cwd), state)
+    "edit_file" -> stateless(file_ops.edit_file(input, state.cwd), state)
+    "todo" -> handle_todo(input, state)
+    "agent" -> stateless(run_subagent(input, state), state)
+    "load_skill" -> handle_load_skill(input, state)
+    "compact" -> handle_compact(state)
+    "task_create" -> handle_task_create(input, state)
+    "task_update" -> handle_task_update(input, state)
+    "task_list" -> #(tasks.render(tasks.list_all(state.task_store)), False, state)
+    "task_get" -> handle_task_get(input, state)
+    "bg_run" -> handle_bg_run(input, state)
+    "bg_check" -> #(background.render(background.drain(state.background)), False, state)
+    other -> #("Unknown tool: " <> other, True, state)
+  }
+}
+
+fn stateless(
+  outcome: Result(String, String),
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case outcome {
+    Ok(text) -> #(text, False, state)
+    Error(message) -> #(message, True, state)
+  }
+}
+
+fn run_bash(input: JsonValue, cwd: String) -> Result(String, String) {
+  use command <- result.try(get_string(input, "command"))
+  shell.execute(command, cwd)
+}
+</script>
+<script type="text/plain" id="src-sandbox">
+import filepath
+import gleam/list
+import gleam/string
+
+pub fn resolve(relative: String, cwd: String) -> Result(String, String) {
+  let joined = case filepath.is_absolute(relative) {
+    True -> relative
+    False -> filepath.join(cwd, relative)
+  }
+  case list.contains(filepath.split(joined), "..") {
+    True -> Error("Path escapes workspace: " <> relative)
+    False ->
+      case string.starts_with(joined, cwd) {
+        True -> Ok(joined)
+        False -> Error("Path escapes workspace: " <> relative)
+      }
+  }
+}
+</script>
+<script type="text/plain" id="src-file_ops">
+import claude_code/internal/sandbox
+import claude_code/json_value.{type JsonValue, get_string}
+import filepath
+import gleam/int
+import gleam/result
+import gleam/string
+import simplifile
+
+pub fn read_file(input: JsonValue, cwd: String) -> Result(String, String) {
+  use path <- result.try(get_string(input, "path"))
+  use resolved <- result.try(sandbox.resolve(path, cwd))
+  use content <- result.try(
+    simplifile.read(resolved) |> result.map_error(simplifile.describe_error),
+  )
+  Ok(content)
+}
+
+pub fn write_file(input: JsonValue, cwd: String) -> Result(String, String) {
+  use path <- result.try(get_string(input, "path"))
+  use content <- result.try(get_string(input, "content"))
+  use resolved <- result.try(sandbox.resolve(path, cwd))
+  use _ <- result.try(
+    simplifile.create_directory_all(filepath.directory_name(resolved))
+    |> result.map_error(simplifile.describe_error),
+  )
+  use _ <- result.try(
+    simplifile.write(to: resolved, contents: content)
+    |> result.map_error(simplifile.describe_error),
+  )
+  Ok(
+    "Wrote "
+    <> int.to_string(string.byte_size(content))
+    <> " bytes to "
+    <> path,
+  )
+}
+
+pub fn edit_file(input: JsonValue, cwd: String) -> Result(String, String) {
+  use path <- result.try(get_string(input, "path"))
+  use old <- result.try(get_string(input, "old_text"))
+  use new <- result.try(get_string(input, "new_text"))
+  use resolved <- result.try(sandbox.resolve(path, cwd))
+  use content <- result.try(
+    simplifile.read(resolved) |> result.map_error(simplifile.describe_error),
+  )
+  use edited <- result.try(replace_once(content, old, new))
+  use _ <- result.try(
+    simplifile.write(to: resolved, contents: edited)
+    |> result.map_error(simplifile.describe_error),
+  )
+  Ok("Edited " <> path)
+}
+
+fn replace_once(
+  content: String,
+  old: String,
+  new: String,
+) -> Result(String, String) {
+  case string.split_once(content, old) {
+    Ok(#(before, after)) -> Ok(before <> new <> after)
+    Error(_) -> Error("old_text not found in file")
+  }
+}
+</script>
+<script type="text/plain" id="src-todos">
+import gleam/int
+import gleam/list
+import gleam/string
+
+pub type TodoStatus {
+  Pending
+  InProgress
+  Completed
+}
+
+pub type TodoItem {
+  TodoItem(id: String, text: String, status: TodoStatus)
+}
+
+pub const max_items = 20
+
+pub fn validate(items: List(TodoItem)) -> Result(List(TodoItem), String) {
+  let in_progress = list.filter(items, fn(i) { i.status == InProgress })
+  case list.length(items) > max_items, list.length(in_progress) > 1 {
+    True, _ -> Error("Too many items (max 20)")
+    _, True -> Error("Only one task may be in-progress at a time")
+    False, False -> Ok(items)
+  }
+}
+
+pub fn render(items: List(TodoItem)) -> String {
+  case items {
+    [] -> "No todos."
+    _ -> {
+      let lines = list.map(items, fn(i) { marker(i.status) <> " " <> i.text })
+      let done =
+        list.length(list.filter(items, fn(i) { i.status == Completed }))
+      string.join(lines, "\n")
+      <> "\n("
+      <> int.to_string(done)
+      <> "/"
+      <> int.to_string(list.length(items))
+      <> " completed)"
+    }
+  }
+}
+
+fn marker(status: TodoStatus) -> String {
+  case status {
+    Pending -> "[ ]"
+    InProgress -> "[>]"
+    Completed -> "[x]"
+  }
+}
+</script>
+<script type="text/plain" id="src-agent_todo">
+fn handle_todo(
+  input: JsonValue,
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case parse_todos(input) {
+    Error(message) -> #(message, True, state)
+    Ok(items) ->
+      case todos.validate(items) {
+        Error(message) -> #(message, True, state)
+        Ok(valid) -> #(
+          todos.render(valid),
+          False,
+          AgentState(..state, todos: valid, idle_turns: 0),
+        )
+      }
+  }
+}
+
+fn parse_todos(input: JsonValue) -> Result(List(TodoItem), String) {
+  case input {
+    JsonObject(fields) ->
+      case list.key_find(fields, "items") {
+        Ok(JsonArray(items)) -> list.try_map(items, parse_todo_item)
+        _ -> Error("todo: expected an 'items' array")
+      }
+    _ -> Error("todo: input must be an object")
+  }
+}
+
+fn append_results(state: AgentState, results: List(ContentBlock)) -> AgentState {
+  let notes = background.drain(state.background)
+  let extra = case notes {
+    [] -> []
+    _ -> [TextBlock(text: "<background-results>\n" <> background.render(notes) <> "\n</background-results>")]
+  }
+  let user_message = Message(role: User, content: list.append(results, extra))
+  let state =
+    AgentState(
+      ..state,
+      messages: list.append(state.messages, [user_message]),
+      idle_turns: state.idle_turns + 1,
+    )
+  let open = list.any(state.todos, fn(item) { item.status != Completed })
+  case state.config.enable_nag && state.idle_turns >= 3 && open {
+    True -> {
+      let nag = Message(role: User, content: [TextBlock(text: "Reminder: keep your todo list up to date.")])
+      AgentState(..state, messages: list.append(state.messages, [nag]))
+    }
+    False -> state
+  }
+}
+</script>
+<script type="text/plain" id="src-agent_config">
+pub type LoopConfig {
+  LoopConfig(tool_names: List(String), max_iterations: Int, enable_nag: Bool)
+}
+
+pub fn config_default() -> LoopConfig {
+  LoopConfig(
+    tool_names: [
+      "bash", "read_file", "write_file", "edit_file", "todo", "agent",
+      "load_skill", "compact", "task_create", "task_update", "task_list",
+      "task_get", "bg_run", "bg_check",
+    ],
+    max_iterations: 1000,
+    enable_nag: True,
+  )
+}
+
+pub fn config_subagent() -> LoopConfig {
+  LoopConfig(
+    tool_names: [
+      "bash", "read_file", "write_file", "edit_file", "load_skill", "task_list",
+      "task_get",
+    ],
+    max_iterations: 30,
+    enable_nag: False,
+  )
+}
+</script>
+<script type="text/plain" id="src-agent_subagent">
+fn run_subagent(input: JsonValue, state: AgentState) -> Result(String, String) {
+  use prompt <- result.try(get_string(input, "prompt"))
+  let sub =
+    AgentState(
+      ..state,
+      messages: [Message(role: User, content: [TextBlock(text: prompt)])],
+      config: config_subagent(),
+      todos: [],
+      idle_turns: 0,
+    )
+  use #(text, _discarded) <- result.try(loop(sub, 0))
+  Ok(text)
+}
+</script>
+<script type="text/plain" id="src-skills">
+import filepath
+import gleam/dict.{type Dict}
+import gleam/list
+import gleam/result
+import gleam/string
+import simplifile
+
+pub type Skill {
+  Skill(name: String, description: String, body: String)
+}
+
+pub type SkillLoader {
+  SkillLoader(skills: Dict(String, Skill))
+}
+
+pub fn load(directory: String) -> SkillLoader {
+  case simplifile.is_directory(directory) {
+    Ok(True) -> {
+      let names = simplifile.read_directory(directory) |> result.unwrap([])
+      let loaded = list.filter_map(names, fn(name) { try_load(directory, name) })
+      SkillLoader(skills: dict.from_list(loaded))
+    }
+    _ -> SkillLoader(skills: dict.new())
+  }
+}
+
+fn try_load(directory: String, name: String) -> Result(#(String, Skill), Nil) {
+  let path = filepath.join(filepath.join(directory, name), "SKILL.md")
+  case simplifile.read(path) {
+    Ok(raw) -> {
+      let skill = parse(name, raw)
+      Ok(#(skill.name, skill))
+    }
+    Error(_) -> Error(Nil)
+  }
+}
+
+fn parse(fallback_name: String, raw: String) -> Skill {
+  case string.split(raw, "---") {
+    [_, frontmatter, ..rest] -> {
+      let name = field(frontmatter, "name") |> result.unwrap(fallback_name)
+      let description = field(frontmatter, "description") |> result.unwrap("")
+      let body = rest |> string.join("---") |> string.trim
+      Skill(name:, description:, body:)
+    }
+    _ -> Skill(name: fallback_name, description: "", body: string.trim(raw))
+  }
+}
+
+fn field(frontmatter: String, key: String) -> Result(String, Nil) {
+  frontmatter
+  |> string.split("\n")
+  |> list.find_map(fn(line) {
+    case string.split_once(line, ":") {
+      Ok(#(found, value)) ->
+        case string.trim(found) == key {
+          True -> Ok(string.trim(value))
+          False -> Error(Nil)
+        }
+      Error(_) -> Error(Nil)
+    }
+  })
+}
+
+pub fn menu(loader: SkillLoader) -> String {
+  case dict.is_empty(loader.skills) {
+    True -> ""
+    False ->
+      loader.skills
+      |> dict.values
+      |> list.sort(fn(a, b) { string.compare(a.name, b.name) })
+      |> list.map(fn(skill) { "  - " <> skill.name <> ": " <> skill.description })
+      |> string.join("\n")
+  }
+}
+
+pub fn body_for(loader: SkillLoader, name: String) -> String {
+  case dict.get(loader.skills, name) {
+    Ok(skill) ->
+      "<skill name=\"" <> name <> "\">\n" <> skill.body <> "\n</skill>"
+    Error(_) -> "Unknown skill: " <> name
+  }
+}
+</script>
+<script type="text/plain" id="src-agent_skill">
+fn handle_load_skill(
+  input: JsonValue,
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case get_string(input, "name") {
+    Ok(name) -> #(skills.body_for(state.skills, name), False, state)
+    Error(message) -> #(message, True, state)
+  }
+}
+</script>
+<script type="text/plain" id="src-agent_sysprompt">
+pub fn new(
+  api_key: String,
+  model: String,
+  cwd: String,
+  skill_loader: SkillLoader,
+  task_store: TaskStore,
+  bg: Subject(background.Message),
+) -> AgentState {
+  AgentState(
+    client: Client(api_key:, base_url: "https://api.anthropic.com"),
+    model:,
+    system_prompt: build_system_prompt(skill_loader),
+    messages: [],
+    cwd:,
+    config: config_default(),
+    todos: [],
+    idle_turns: 0,
+    skills: skill_loader,
+    task_store:,
+    background: bg,
+  )
+}
+
+fn build_system_prompt(skill_loader: SkillLoader) -> String {
+  let base = "You are a coding agent. Use the tools to help the user."
+  case skills.menu(skill_loader) {
+    "" -> base
+    menu ->
+      base
+      <> "\n\nAvailable skills (call load_skill to read one):\n"
+      <> menu
+  }
+}
+</script>
+<script type="text/plain" id="src-compact">
+import claude_code/api.{
+  type Client, type ContentBlock, type Message, Assistant, Message, TextBlock,
+  ToolResultBlock, User,
+}
+import gleam/list
+import gleam/result
+import gleam/string
+
+pub const keep_recent = 6
+
+pub const token_threshold = 12_000
+
+pub fn micro_compact(messages: List(Message)) -> List(Message) {
+  let count = list.length(messages)
+  list.index_map(messages, fn(message, index) {
+    case index < count - keep_recent {
+      True -> Message(..message, content: list.map(message.content, elide))
+      False -> message
+    }
+  })
+}
+
+fn elide(block: ContentBlock) -> ContentBlock {
+  case block {
+    ToolResultBlock(tool_use_id:, content:, is_error:) ->
+      case string.length(content) > 100 {
+        True ->
+          ToolResultBlock(
+            tool_use_id:,
+            content: "[earlier tool output elided]",
+            is_error:,
+          )
+        False -> block
+      }
+    _ -> block
+  }
+}
+
+pub fn estimate_tokens(messages: List(Message)) -> Int {
+  messages
+  |> list.fold(0, fn(total, message) { total + message_size(message) })
+  |> divide_by_four
+}
+
+fn divide_by_four(chars: Int) -> Int {
+  chars / 4
+}
+
+fn message_size(message: Message) -> Int {
+  list.fold(message.content, 0, fn(total, block) {
+    case block {
+      TextBlock(text:) -> total + string.length(text)
+      ToolResultBlock(content:, ..) -> total + string.length(content)
+      _ -> total
+    }
+  })
+}
+
+pub fn auto_compact(
+  messages: List(Message),
+  client: Client,
+  model: String,
+) -> Result(List(Message), String) {
+  case estimate_tokens(messages) > token_threshold {
+    False -> Ok(messages)
+    True -> {
+      let prompt =
+        "Summarise the key facts, decisions, and current state so work can continue:\n\n"
+        <> transcript(messages)
+      use response <- result.try(api.create_message(
+        client,
+        model,
+        "You compress conversations faithfully.",
+        [Message(role: User, content: [TextBlock(text: prompt)])],
+        [],
+        1024,
+      ))
+      Ok([
+        Message(role: User, content: [
+          TextBlock(
+            text: "[Summary of earlier conversation]\n"
+              <> extract_text(response.content),
+          ),
+        ]),
+      ])
+    }
+  }
+}
+
+fn transcript(messages: List(Message)) -> String {
+  messages
+  |> list.map(fn(message) {
+    let who = case message.role {
+      User -> "User"
+      Assistant -> "Assistant"
+    }
+    who <> ": " <> extract_text(message.content)
+  })
+  |> string.join("\n")
+}
+
+fn extract_text(content: List(ContentBlock)) -> String {
+  content
+  |> list.filter_map(fn(block) {
+    case block {
+      TextBlock(text:) -> Ok(text)
+      _ -> Error(Nil)
+    }
+  })
+  |> string.join(" ")
+}
+</script>
+<script type="text/plain" id="src-agent_compact">
+fn compact_step(state: AgentState) -> AgentState {
+  let state =
+    AgentState(..state, messages: compact.micro_compact(state.messages))
+  case compact.auto_compact(state.messages, state.client, state.model) {
+    Ok(messages) -> AgentState(..state, messages:)
+    Error(_) -> state
+  }
+}
+
+fn handle_compact(state: AgentState) -> #(String, Bool, AgentState) {
+  case compact.auto_compact(state.messages, state.client, state.model) {
+    Ok(messages) -> #("Context compacted.", False, AgentState(..state, messages:))
+    Error(message) -> #(message, True, state)
+  }
+}
+</script>
+<script type="text/plain" id="src-tasks">
+import filepath
+import gleam/dynamic/decode.{type Decoder}
+import gleam/int
+import gleam/json.{type Json}
+import gleam/list
+import gleam/result
+import gleam/string
+import simplifile
+
+pub type TaskStatus {
+  TaskPending
+  TaskActive
+  TaskDone
+}
+
+pub type AgentTask {
+  AgentTask(
+    id: Int,
+    subject: String,
+    description: String,
+    status: TaskStatus,
+    blocked_by: List(Int),
+    blocks: List(Int),
+  )
+}
+
+pub type TaskStore {
+  TaskStore(directory: String, next_id: Int)
+}
+
+pub fn init(directory: String) -> TaskStore {
+  let _ = simplifile.create_directory_all(directory)
+  TaskStore(directory:, next_id: scan_max_id(directory) + 1)
+}
+
+pub fn create(
+  store: TaskStore,
+  subject: String,
+  description: String,
+) -> Result(#(TaskStore, AgentTask), String) {
+  let task =
+    AgentTask(
+      id: store.next_id,
+      subject:,
+      description:,
+      status: TaskPending,
+      blocked_by: [],
+      blocks: [],
+    )
+  use _ <- result.try(write_task(store.directory, task))
+  Ok(#(TaskStore(..store, next_id: store.next_id + 1), task))
+}
+
+pub fn set_status(
+  store: TaskStore,
+  id: Int,
+  status: TaskStatus,
+) -> Result(AgentTask, String) {
+  use task <- result.try(read_task(store.directory, id))
+  let updated = AgentTask(..task, status:)
+  use _ <- result.try(write_task(store.directory, updated))
+  case status {
+    TaskDone -> {
+      cascade_unblock(store.directory, id)
+      Ok(updated)
+    }
+    _ -> Ok(updated)
+  }
+}
+
+pub fn list_all(store: TaskStore) -> List(AgentTask) {
+  scan_ids(store.directory)
+  |> list.filter_map(fn(id) {
+    read_task(store.directory, id) |> result.replace_error(Nil)
+  })
+}
+
+pub fn get(store: TaskStore, id: Int) -> Result(AgentTask, String) {
+  read_task(store.directory, id)
+}
+
+pub fn render(tasks: List(AgentTask)) -> String {
+  case tasks {
+    [] -> "No tasks."
+    _ -> tasks |> list.map(render_one) |> string.join("\n")
+  }
+}
+
+pub fn render_one(task: AgentTask) -> String {
+  "#"
+  <> int.to_string(task.id)
+  <> " ["
+  <> status_to_string(task.status)
+  <> "] "
+  <> task.subject
+}
+
+fn cascade_unblock(directory: String, completed: Int) -> Nil {
+  list.each(scan_ids(directory), fn(id) {
+    case read_task(directory, id) {
+      Ok(task) ->
+        case list.contains(task.blocked_by, completed) {
+          True -> {
+            let updated =
+              AgentTask(
+                ..task,
+                blocked_by: list.filter(task.blocked_by, fn(b) {
+                  b != completed
+                }),
+              )
+            let _ = write_task(directory, updated)
+            Nil
+          }
+          False -> Nil
+        }
+      Error(_) -> Nil
+    }
+  })
+}
+
+fn path_for(directory: String, id: Int) -> String {
+  filepath.join(directory, int.to_string(id) <> ".json")
+}
+
+fn write_task(directory: String, task: AgentTask) -> Result(Nil, String) {
+  simplifile.write(
+    to: path_for(directory, task.id),
+    contents: json.to_string(to_json(task)),
+  )
+  |> result.map_error(simplifile.describe_error)
+}
+
+fn read_task(directory: String, id: Int) -> Result(AgentTask, String) {
+  use raw <- result.try(
+    simplifile.read(path_for(directory, id))
+    |> result.map_error(simplifile.describe_error),
+  )
+  json.parse(raw, decoder())
+  |> result.replace_error("Could not parse task " <> int.to_string(id))
+}
+
+fn scan_ids(directory: String) -> List(Int) {
+  simplifile.read_directory(directory)
+  |> result.unwrap([])
+  |> list.filter_map(fn(name) {
+    case string.split_once(name, ".") {
+      Ok(#(stem, "json")) -> int.parse(stem) |> result.replace_error(Nil)
+      _ -> Error(Nil)
+    }
+  })
+}
+
+fn scan_max_id(directory: String) -> Int {
+  scan_ids(directory) |> list.fold(0, int.max)
+}
+
+fn status_to_string(status: TaskStatus) -> String {
+  case status {
+    TaskPending -> "pending"
+    TaskActive -> "in_progress"
+    TaskDone -> "completed"
+  }
+}
+
+fn to_json(task: AgentTask) -> Json {
+  json.object([
+    #("id", json.int(task.id)),
+    #("subject", json.string(task.subject)),
+    #("description", json.string(task.description)),
+    #("status", json.string(status_to_string(task.status))),
+    #("blocked_by", json.array(task.blocked_by, json.int)),
+    #("blocks", json.array(task.blocks, json.int)),
+  ])
+}
+
+fn decoder() -> Decoder(AgentTask) {
+  use id <- decode.field("id", decode.int)
+  use subject <- decode.field("subject", decode.string)
+  use description <- decode.field("description", decode.string)
+  use status <- decode.field("status", status_decoder())
+  use blocked_by <- decode.field("blocked_by", decode.list(decode.int))
+  use blocks <- decode.field("blocks", decode.list(decode.int))
+  decode.success(AgentTask(
+    id:,
+    subject:,
+    description:,
+    status:,
+    blocked_by:,
+    blocks:,
+  ))
+}
+
+fn status_decoder() -> Decoder(TaskStatus) {
+  use raw <- decode.then(decode.string)
+  case raw {
+    "in_progress" -> decode.success(TaskActive)
+    "completed" -> decode.success(TaskDone)
+    _ -> decode.success(TaskPending)
+  }
+}
+</script>
+<script type="text/plain" id="src-agent_tasks">
+fn handle_task_create(
+  input: JsonValue,
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case get_string(input, "subject"), get_string(input, "description") {
+    Ok(subject), Ok(description) ->
+      case tasks.create(state.task_store, subject, description) {
+        Ok(#(store, task)) -> #(
+          tasks.render_one(task),
+          False,
+          AgentState(..state, task_store: store),
+        )
+        Error(message) -> #(message, True, state)
+      }
+    _, _ -> #("task_create needs subject and description", True, state)
+  }
+}
+
+fn handle_task_update(
+  input: JsonValue,
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case get_int(input, "id"), get_string(input, "status") {
+    Ok(id), Ok(status) -> {
+      let parsed = case status {
+        "in_progress" -> TaskActive
+        "completed" -> TaskDone
+        _ -> TaskPending
+      }
+      case tasks.set_status(state.task_store, id, parsed) {
+        Ok(task) -> #(tasks.render_one(task), False, state)
+        Error(message) -> #(message, True, state)
+      }
+    }
+    _, _ -> #("task_update needs id and status", True, state)
+  }
+}
+
+fn handle_task_get(
+  input: JsonValue,
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case get_int(input, "id") {
+    Ok(id) ->
+      case tasks.get(state.task_store, id) {
+        Ok(task) -> #(tasks.render_one(task), False, state)
+        Error(message) -> #(message, True, state)
+      }
+    Error(message) -> #(message, True, state)
+  }
+}
+</script>
+<script type="text/plain" id="src-background">
+import claude_code/internal/shell
+import gleam/dict.{type Dict}
+import gleam/erlang/process.{type Subject}
+import gleam/int
+import gleam/list
+import gleam/otp/actor
+import gleam/string
+
+pub type JobStatus {
+  JobRunning
+  JobCompleted
+  JobFailed
+}
+
+pub type Notification {
+  Notification(job_id: String, status: JobStatus, output: String)
+}
+
+pub type Message {
+  RunJob(command: String, reply: Subject(String))
+  Drain(reply: Subject(List(Notification)))
+  JobDone(Notification)
+}
+
+type State {
+  State(
+    jobs: Dict(String, JobStatus),
+    notifications: List(Notification),
+    cwd: String,
+    next_job: Int,
+    self: Subject(Message),
+  )
+}
+
+pub fn start(cwd: String) -> Result(Subject(Message), actor.StartError) {
+  let builder =
+    actor.new_with_initialiser(1000, fn(self) {
+      State(jobs: dict.new(), notifications: [], cwd:, next_job: 1, self:)
+      |> actor.initialised
+      |> actor.returning(self)
+      |> Ok
+    })
+    |> actor.on_message(handle)
+
+  case actor.start(builder) {
+    Ok(started) -> Ok(started.data)
+    Error(error) -> Error(error)
+  }
+}
+
+pub fn run(manager: Subject(Message), command: String) -> String {
+  process.call(manager, waiting: 5000, sending: fn(reply) {
+    RunJob(command:, reply:)
+  })
+}
+
+pub fn drain(manager: Subject(Message)) -> List(Notification) {
+  process.call(manager, waiting: 5000, sending: fn(reply) { Drain(reply:) })
+}
+
+fn handle(state: State, message: Message) -> actor.Next(State, Message) {
+  case message {
+    RunJob(command:, reply:) -> {
+      let job_id = "job-" <> int.to_string(state.next_job)
+      let self = state.self
+      let cwd = state.cwd
+      let _ =
+        process.spawn(fn() {
+          let note = case shell.execute(command, cwd) {
+            Ok(output) -> Notification(job_id:, status: JobCompleted, output:)
+            Error(error) ->
+              Notification(job_id:, status: JobFailed, output: error)
+          }
+          process.send(self, JobDone(note))
+        })
+      process.send(reply, job_id)
+      actor.continue(
+        State(
+          ..state,
+          next_job: state.next_job + 1,
+          jobs: dict.insert(state.jobs, job_id, JobRunning),
+        ),
+      )
+    }
+    JobDone(note) ->
+      actor.continue(
+        State(
+          ..state,
+          notifications: [note, ..state.notifications],
+          jobs: dict.insert(state.jobs, note.job_id, note.status),
+        ),
+      )
+    Drain(reply:) -> {
+      process.send(reply, list.reverse(state.notifications))
+      actor.continue(State(..state, notifications: []))
+    }
+  }
+}
+
+pub fn render(notes: List(Notification)) -> String {
+  case notes {
+    [] -> "No completed background jobs."
+    _ ->
+      notes
+      |> list.map(fn(note) {
+        note.job_id <> " [" <> status_string(note.status) <> "]: " <> note.output
+      })
+      |> string.join("\n")
+  }
+}
+
+fn status_string(status: JobStatus) -> String {
+  case status {
+    JobRunning -> "running"
+    JobCompleted -> "completed"
+    JobFailed -> "failed"
+  }
+}
+</script>
+<script type="text/plain" id="src-agent_bg">
+fn handle_bg_run(
+  input: JsonValue,
+  state: AgentState,
+) -> #(String, Bool, AgentState) {
+  case get_string(input, "command") {
+    Ok(command) -> #(
+      "Started " <> background.run(state.background, command),
+      False,
+      state,
+    )
+    Error(message) -> #(message, True, state)
+  }
+}
+</script>
+<!-- SRC_INSERT -->
+</div>
+
+<script>
+/* ============ syntax highlighter (per line) ============ */
+var KW={
+  gleam:['import','pub','fn','type','const','let','use','case','if','else','as','todo','panic','assert','external','opaque'],
+  toml:[],bash:[],erlang:['module','export','case','of','end','fun','when','receive','after']
+};
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sp(c,t){return '<span class="'+c+'">'+esc(t)+'</span>';}
+function hlLine(code,lang){
+  var kws=KW[lang]||[],out='',i=0,n=code.length;
+  function id(c){return /[A-Za-z0-9_]/.test(c);}
+  while(i<n){
+    var c=code[i];
+    if(c==='/'&&code[i+1]==='/'){out+=sp('co',code.slice(i));break;}
+    if(c==='#'&&(lang==='toml'||lang==='bash')){out+=sp('co',code.slice(i));break;}
+    if(c==='%'&&lang==='erlang'){out+=sp('co',code.slice(i));break;}
+    if(c==='"'){var j=i+1;while(j<n&&!(code[j]==='"'&&code[j-1]!=='\\'))j++;j++;if(j>n)j=n;out+=sp('str',code.slice(i,j));i=j;continue;}
+    if(/[0-9]/.test(c)&&(i===0||!id(code[i-1]))){var k=i;while(k<n&&/[0-9_.]/.test(code[k]))k++;out+=sp('num',code.slice(i,k));i=k;continue;}
+    if(id(c)){var m=i;while(m<n&&id(code[m]))m++;var w=code.slice(i,m),p=m;while(p<n&&code[p]===' ')p++;
+      var cls=kws.indexOf(w)>=0?'kw':(/^[A-Z]/.test(w)?'ty':(code[p]==='('?'fn':'va'));out+=sp(cls,w);i=m;continue;}
+    out+=esc(c);i++;
+  }
+  return out;
+}
+function srcOf(id){var e=document.getElementById('src-'+id);return e?e.textContent.replace(/^\n+/,'').replace(/\s+$/,''):'';}
+function inRange(n,spec){return spec.split(',').some(function(part){
+  var a=part.split('-');var lo=+a[0],hi=a[1]?+a[1]:lo;return n>=lo&&n<=hi;});}
+
+/* ============ render one code-walkthrough ============ */
+function renderWalk(mod){
+  var lines=srcOf(mod.key).split('\n');
+  var codeHtml=lines.map(function(ln,idx){
+    return '<div class="cl" data-n="'+(idx+1)+'"><span class="lno">'+(idx+1)+'</span><span class="src">'+(ln===''?' ':hlLine(ln,mod.lang||'gleam'))+'</span></div>';
+  }).join('');
+  var notesHtml=(mod.notes||[]).map(function(nt){
+    var q=nt.q?'<details class="q"><summary>'+nt.q+'</summary><div class="a">'+nt.a+'</div></details>':'';
+    return '<div class="note" data-lines="'+nt.lines+'"><span class="lb">lines '+nt.lines.replace(/-/g,'–')+'</span><p>'+nt.text+'</p>'+q+'</div>';
+  }).join('');
+  var top=mod.file?'<div class="code-top">'+esc(mod.file)+'</div>':'';
+  return '<div class="walk"><div class="code" id="code-'+mod.key+'">'+top+codeHtml+'</div><div class="notes">'+notesHtml+'</div></div>';
+}
+function wireWalk(scope){
+  scope.querySelectorAll('.note').forEach(function(note){
+    var spec=note.getAttribute('data-lines');
+    var walk=note.closest('.walk');var codeBox=walk.querySelector('.code');
+    function matched(){return Array.prototype.filter.call(codeBox.querySelectorAll('.cl'),function(cl){return inRange(+cl.getAttribute('data-n'),spec);});}
+    function set(on){matched().forEach(function(cl){cl.classList.toggle('hl',on);});}
+    note.addEventListener('mouseenter',function(){set(true);});
+    note.addEventListener('mouseleave',function(){set(false);});
+    note.addEventListener('click',function(ev){
+      if(ev.target.closest('details'))return;
+      var ls=matched();if(!ls.length)return;
+      ls[0].scrollIntoView({behavior:'smooth',block:'center'});
+      ls.forEach(function(cl){cl.classList.add('flash');setTimeout(function(){cl.classList.remove('flash');},1200);});
+    });
+  });
+}
+
+/* ============ data ============ */
+var MODULES={
+  json_value:{key:'json_value',file:'src/claude_code/json_value.gleam',lang:'gleam',notes:[
+    {lines:'1-4',text:'Imports. <code>dict</code> and <code>list</code> are stdlib collections; <code>decode</code> is the <em>reading</em> half of JSON and <code>json</code> is the <em>writing</em> half. <code>{type Decoder}</code> and <code>{type Json}</code> pull just those type names into scope so we can write them unqualified.'},
+    {lines:'6-14',text:'A custom type with seven constructors: this is our own model of any JSON value. Each variant carries exactly the data that shape needs. <code>JsonNull</code> takes no arguments at all.',
+      q:'Why invent our own type instead of using the json library&rsquo;s value?',
+      a:'Because <code>gleam/json</code> is <strong>encode-only</strong> &mdash; its <code>Json</code> type is opaque, you can build it but never read fields back out. A tool call&rsquo;s input must be read (to run the tool) <em>and</em> written back unchanged (echoed to the API). Owning the type lets us define both directions ourselves.'},
+    {lines:'16-27',text:'The <em>reading</em> direction: a decoder that turns untyped data into a <code>JsonValue</code>. <code>one_of</code> tries the first decoder, then each in the <code>or:</code> list until one matches.',
+      q:'Lines 21&ndash;22 call <code>decode.recursive(decoder)</code>. Why not just write <code>decoder()</code>?',
+      a:'A JSON array can contain more JSON values, so the decoder refers to itself. <code>decode.recursive</code> defers building the inner decoder until it&rsquo;s needed, which breaks the infinite loop you&rsquo;d get from evaluating <code>decoder()</code> eagerly while still defining it.'},
+    {lines:'18-20',text:'<code>decode.map(decode.string, JsonString)</code> reads a string, then wraps it with the <code>JsonString</code> constructor. A constructor is just a function, so it can be passed straight to <code>map</code>.'},
+    {lines:'22-25',text:'Objects decode as a <code>dict</code> of string keys to values, then <code>dict.to_list</code> turns it into the list of pairs our <code>JsonObject</code> holds.'},
+    {lines:'29-40',text:'The <em>writing</em> direction: a <code>case</code> over every variant, turning each into the matching <code>gleam/json</code> builder. Because the type has exactly these seven shapes, the compiler guarantees we handled them all.',
+      q:'What does the compiler do if you later add a <code>JsonDate</code> variant but forget this function?',
+      a:'It refuses to compile: the <code>case</code> is no longer exhaustive. Exhaustiveness turns &ldquo;I forgot a case&rdquo; from a runtime surprise into a compile error &mdash; the compiler is acting as your checklist.'},
+    {lines:'31-32',text:'For an object we map each <code>#(key, value)</code> pair, recursively encoding the value with <code>to_json</code>. <code>p.0</code> and <code>p.1</code> are the first and second elements of the tuple.'},
+    {lines:'42-51',text:'A small helper used all over the tool handlers: pull a string field out by key, or return a friendly <code>Error</code>. Pattern matching does the work &mdash; we only succeed when the input is an object <em>and</em> the key exists <em>and</em> its value is a <code>JsonString</code>.',
+      q:'The middle <code>case</code> matches <code>Ok(JsonString(value))</code> but has a single <code>_</code> for everything else. What three different failures does that <code>_</code> quietly cover?',
+      a:'Key missing (<code>list.key_find</code> returns <code>Error</code>), key present but not a string (e.g. <code>JsonInt</code>), and &mdash; impossible here but covered &mdash; any other shape. One branch, three failure modes, one clear message.'}
+  ]}
+  ,json_value_test:{key:'json_value_test',file:'test/json_value_test.gleam',lang:'gleam',notes:[
+    {lines:'1-2',text:'Bring in the type and just the two constructors we will name, plus <code>gleam/json</code> for <code>to_string</code> and <code>parse</code>. Notice there is no <code>main</code> in this file &mdash; <code>gleeunit</code> finds every <code>_test</code> function on its own.'},
+    {lines:'4-11',text:'The whole section in one helper: pipe a value through <code>to_json</code>, serialise it, then <code>parse</code> it back with our <code>decoder()</code>. The return type is written out in full &mdash; <code>Result(JsonValue, json.DecodeError)</code> &mdash; because <code>parse</code> can fail. Gleam would infer this, but on a function you keep around, spelling it out documents the contract and makes any future mismatch fail at the signature rather than deep inside the body.',
+      q:'Why prove a round-trip instead of testing <code>to_json</code> and <code>decoder</code> separately?',
+      a:'The round-trip asserts the one property the agent actually depends on: a value survives being written <em>and</em> read unchanged. It also catches any disagreement between the two halves, and you never have to hand-write the expected JSON string for each case &mdash; you just compare against the value you started with.'},
+    {lines:'13-15',text:'One real test: a public function whose name ends in <code>_test</code>, holding a single <code>assert</code>. If the two sides are not equal the test fails with a diff. This is the same <code>assert</code> you met in the language tour.'},
+    {lines:'17-19',text:'An encode-only check, for when you want to pin the exact bytes on the wire &mdash; here, that a string becomes a <em>quoted</em> string. Use this sparingly: only where the literal format itself is what you care about.'},
+    {lines:'20-21',text:'Your turn. Add one round-trip per remaining shape &mdash; each is a single <code>assert</code> that calls the helper. Two of these hide a lesson.',
+      q:'Why a <em>single-key</em> object, and why leave <code>JsonNull</code> for last?',
+      a:'Decoding an object routes through a <code>dict</code>, whose key order is unspecified &mdash; a multi-key object can come back with its fields reordered, so <code>==</code> fails for a reason that has nothing to do with your code. And <code>JsonNull</code> has <em>no</em> arm in <code>decoder()</code>&rsquo;s <code>one_of</code>, so its round-trip fails outright: a real gap in the module that the test makes you discover, rather than a mistake in the test.'}
+  ]}
+  ,api:{key:'api',file:'src/claude_code/api.gleam',lang:'gleam',notes:[
+    {lines:'1-8',text:'Imports. We bring in our own <code>JsonValue</code>, the <code>decode</code> half of JSON, the HTTP request/client, and <code>result</code> for error plumbing. <code>{Post}</code> imports just that one value from <code>gleam/http</code>.'},
+    {lines:'10-13',text:'<code>Role</code> is a type with exactly two values. There is no &ldquo;invalid role&rdquo; state to guard against &mdash; the type makes only <code>User</code> and <code>Assistant</code> representable.'},
+    {lines:'15-19',text:'A content block is text, a tool call, or a tool result. One type, three shapes, each carrying its own fields. The model&rsquo;s replies and our replies both use this.',
+      q:'Why give the variants suffixes like <code>TextBlock</code> instead of just <code>Text</code>?',
+      a:'All constructors share one namespace per module. <code>StopReason</code> below also has a tool-related value; if both were named <code>ToolUse</code> the module would not compile. Suffixes keep every constructor name unique.'},
+    {lines:'25-30',text:'Why the conversation can stop: the model finished, hit the token limit, asked to use a tool, or something new. <code>OtherStop(String)</code> keeps an unknown reason instead of crashing &mdash; forward-compatibility as a value.'},
+    {lines:'44-60',text:'<code>create_message</code> begins by building the request body with the <em>encoding</em> half of JSON: <code>json.object</code>, <code>json.string</code>, <code>json.array(list, encoder)</code>. <code>|&gt; json.to_string</code> turns it into the bytes we send.'},
+    {lines:'62-65',text:'<code>request.to</code> returns a <code>Result</code> because a URL can be malformed. <code>use base &lt;- result.try(...)</code> unwraps it, or stops the whole function early with our error string.',
+      q:'What happens to the rest of the function if the URL is invalid?',
+      a:'<code>result.try</code> short-circuits: the <code>Error</code> becomes the return value of <code>create_message</code> immediately, and no request is ever sent. Failure is data flowing out through the return type &mdash; no exceptions.'},
+    {lines:'67-73',text:'A pipeline that decorates the request: method, headers, body. Each <code>request.set_*</code> returns a new request, so we never mutate &mdash; we transform.'},
+    {lines:'75-86',text:'Send, mapping any transport failure to a readable string. Then branch on the HTTP status: <code>200</code> decodes the body into our types; anything else becomes an <code>Error</code> with the status and body.'},
+    {lines:'88-103',text:'The decoder for one content block: read the <code>"type"</code> field, then decode the rest based on what it says. <code>use kind &lt;- decode.field(...)</code> reads like imperative code but is pure and checked.',
+      q:'Line 99 decodes the tool input with <code>json_value.decoder()</code>. Why store it as our <code>JsonValue</code> rather than reading the fields here?',
+      a:'We do not know a tool&rsquo;s schema at decode time, and we must echo the exact input back to the API later. Keeping it as a round-trippable <code>JsonValue</code> defers field-reading to the specific tool handler that knows what it wants.'},
+    {lines:'105-119',text:'Two more decoders: one mapping stop-reason strings to our type (unknown &rarr; <code>OtherStop</code>), and one assembling the whole response. Small decoders compose into bigger ones.'},
+    {lines:'121-162',text:'The <em>encoding</em> direction: turn our typed messages, blocks, and tool definitions back into JSON for the wire. Note the symmetry with the decoders &mdash; reading and writing are separate, explicit halves.'}
+  ]}
+  ,agent_loop:{key:'agent_loop',file:'src/claude_code/agent.gleam (the core loop)',lang:'gleam',notes:[
+    {lines:'1-15',text:'<code>AgentState</code> is the single value that holds everything the agent needs. It is a record, not an object: no methods, no hidden state. Some fields (<code>skills</code>, <code>task_store</code>, <code>background</code>) belong to later stages &mdash; the record simply grows as the system grows.',
+      q:'Swift would reach for a class with mutable fields here. What replaces &ldquo;mutating a field&rdquo; in Gleam?',
+      a:'Making a new record with <code>AgentState(..old, field: new_value)</code>. The old value is untouched; you pass the new one forward. State changes become explicit returns, not invisible side effects.'},
+    {lines:'17-25',text:'<code>run</code> starts a turn: append the user&rsquo;s query as a new message, then enter the loop. It returns <code>#(String, AgentState)</code> &mdash; the reply <em>and</em> the new state &mdash; so the caller can keep the conversation going.',
+      q:'Why return the new <code>AgentState</code> instead of just the reply text?',
+      a:'There is no shared mutable conversation to read from later. The updated history lives in the returned state; the REPL feeds it into the next <code>run</code>. State travels through the return value.'},
+    {lines:'27-33',text:'The loop is a function that calls itself &mdash; this <em>is</em> our iteration. First a guard: stop if we have looped too many times. <code>max_iterations</code> comes from the config (handy for capping subagents in Stage&nbsp;4).',
+      q:'There is no <code>while</code> here. Why is calling <code>loop</code> again not going to blow the stack?',
+      a:'It is a <em>tail call</em>: the recursive call is the last thing the function does. The Erlang VM turns tail calls into jumps, so the loop runs in constant stack space &mdash; recursion is how you iterate in Gleam.'},
+    {lines:'34-45',text:'One turn: (34) prune/summarise context [Stage&nbsp;6], (35&ndash;42) call the API with the tools this config allows, (43&ndash;45) append the model&rsquo;s reply to history as a new state.'},
+    {lines:'47-53',text:'The decision that defines an agent. If the model asked for tools, run them, append the results, and <strong>loop again</strong>. Otherwise we are done: return the text and the final state.',
+      q:'Notice the same <code>loop</code> handles every turn. What stays constant no matter how many tools we add later?',
+      a:'The shape: call API &rarr; check stop reason &rarr; run tools &rarr; append &rarr; recurse. Every later stage only adds new tool branches; this loop never changes. The loop is the invariant; tools are the variable.'},
+    {lines:'58-73',text:'<code>run_tools</code> walks the model&rsquo;s blocks with <code>list.fold</code>, carrying the state through. Each tool call may return a <em>new</em> state (a todo edit, a created task), so we thread it: state in, state out, accumulating result blocks.',
+      q:'Why a <code>fold</code> that threads state, rather than a simple <code>map</code> over the blocks?',
+      a:'Some tools change <code>AgentState</code> (todos, task store). A <code>map</code> would run them independently and lose those updates. The fold passes each tool the state left by the previous one, so changes accumulate in order.'},
+    {lines:'75-84',text:'<code>extract_text</code> keeps only the text blocks and joins them. <code>list.filter_map</code> maps and filters at once: return <code>Ok(value)</code> to keep, <code>Error(Nil)</code> to drop. This is the agent&rsquo;s final spoken answer.'}
+  ]}
+  ,shell:{key:'shell',file:'src/claude_code/internal/shell.gleam',lang:'gleam',notes:[
+    {lines:'1-2',text:'Running a shell command is not something Gleam&rsquo;s standard library does, so we step outside the language. <code>@external(erlang, ...)</code> says &ldquo;this function is implemented in Erlang&rdquo; &mdash; we still give it a Gleam type, so callers stay type-safe.',
+      q:'Why declare a type for a function whose body lives in another language?',
+      a:'The type is the contract the rest of the program relies on. Everything that calls <code>execute</code> is checked against <code>Result(String, String)</code>; only this one tiny file is &ldquo;unsafe&rdquo;, and it is easy to audit.'}
+  ]}
+  ,shell_erl:{key:'shell_erl',file:'src/claude_code/internal/shell_ffi.erl',lang:'erlang',notes:[
+    {lines:'1-2',text:'The Erlang side. The module name <code>shell_ffi</code> and the function <code>os_cmd/2</code> must match the strings in the <code>@external</code> line exactly.'},
+    {lines:'4-6',text:'Build a <code>cd &lt;cwd&gt; &amp;&amp; &lt;command&gt;</code> shell string and run it, returning the combined output as a UTF-8 binary wrapped in <code>{ok, ...}</code> &mdash; which Gleam reads as <code>Ok(String)</code>.'}
+  ]}
+  ,stdin:{key:'stdin',file:'src/claude_code/internal/stdin.gleam',lang:'gleam',notes:[
+    {lines:'1-2',text:'Reading a line of input is also outside the stdlib, so it is another tiny FFI boundary. Its Erlang shim returns <code>{ok, Line}</code> or <code>{error, nil}</code> on end-of-file &mdash; which Gleam reads as <code>Result(String, Nil)</code>.'}
+  ]}
+  ,main:{key:'main',file:'src/claude_code.gleam',lang:'gleam',notes:[
+    {lines:'1-11',text:'The entry module imports the pieces it wires together. <code>main</code> is the program&rsquo;s start.'},
+    {lines:'13-15',text:'Find the working directory, then start the background job manager (Stage&nbsp;8). Starting it can fail, so it returns a <code>Result</code> we must handle.'},
+    {lines:'16-25',text:'On success, read configuration from the environment, load skills and the task store, and build the first <code>AgentState</code>. Then hand it to the REPL.',
+      q:'<code>envoy.get</code> returns a <code>Result</code>; we write <code>|&gt; result.unwrap("")</code>. What does that do?',
+      a:'It supplies a default when the variable is missing: use the value if present, otherwise <code>""</code>. A missing API key becomes an empty string rather than a crash &mdash; the failure is handled, not thrown.'},
+    {lines:'29-49',text:'The REPL is itself a recursive function threading <code>AgentState</code>. Print a prompt, read a line, and branch: end-of-file exits, blank loops, <code>exit/quit</code> stops, anything else is a query.',
+      q:'After a successful turn we call <code>repl(next)</code> with the returned state. Why not <code>repl(state)</code>?',
+      a:'<code>next</code> holds the updated conversation (the new messages). Passing the old <code>state</code> would forget everything that just happened. Threading <code>next</code> is how memory persists without any mutation.'}
+  ]}
+  ,agent_dispatch:{key:'agent_dispatch',file:'src/claude_code/agent.gleam (dispatch)',lang:'gleam',notes:[
+    {lines:'1-6',text:'Dispatch is one function: given a tool name, an input, and the state, return a triple of <code>#(result_text, is_error, new_state)</code>. The <code>case name { ... }</code> is the entire mechanism.',
+      q:'Swift often keeps a dictionary mapping tool names to handler objects. Why does Gleam reach for a <code>case</code> instead?',
+      a:'A <code>case</code> on a <code>String</code> needs no registry to populate and no objects to box. Adding a tool is one new branch; the dispatch is right here, readable top to bottom. It is the data structure <em>and</em> the documentation.'},
+    {lines:'7-12',text:'The tools that exist by Stage&nbsp;4: bash, the three file tools, the todo list, and spawning a subagent. Each branch just calls a handler.'},
+    {lines:'13-20',text:'The later-stage tools &mdash; skills, compaction, tasks, background jobs. Their handlers are defined in the stages that introduce them; the dispatch lists them all so you see the finished shape.'},
+    {lines:'21-22',text:'The catch-all. An unknown tool name does not crash &mdash; it returns an error <em>result</em> (the <code>True</code> means is_error) that the model can read and recover from.'},
+    {lines:'25-33',text:'<code>stateless</code> adapts a plain <code>Result(String, String)</code> into the triple, leaving state unchanged. Most tools do not touch <code>AgentState</code>, so this keeps their branches a single line.',
+      q:'Why does <code>execute_tool</code> return a new <code>AgentState</code> at all, when bash and file tools do not change it?',
+      a:'Some tools do (the todo list, creating a task). Returning state uniformly means the loop threads it the same way for every tool; the ones that do not change it just hand back what they got.'},
+    {lines:'35-38',text:'<code>run_bash</code>: pull the <code>command</code> field out of the JSON input, then shell out. Two lines, both fallible, chained with <code>use</code>.'}
+  ]}
+  ,sandbox:{key:'sandbox',file:'src/claude_code/internal/sandbox.gleam',lang:'gleam',notes:[
+    {lines:'1-3',text:'Tiny imports: path helpers and string/list utilities. This module exists only to answer one question safely.'},
+    {lines:'5-9',text:'Turn the requested path into a full path: if it is already absolute use it, otherwise join it onto the working directory. We use <code>filepath.join</code> rather than gluing strings, so separators are correct on any OS.'},
+    {lines:'10-11',text:'Reject any path containing a <code>..</code> segment outright &mdash; that is how an attacker climbs out of the workspace.'},
+    {lines:'13-16',text:'Belt and braces: the resolved path must also start with the working directory. Only then do we return <code>Ok</code>.',
+      q:'Why keep this in its own module instead of inlining the check in each file tool?',
+      a:'Security logic changes for different reasons than file logic, and there must be exactly one definition of &ldquo;inside the workspace&rdquo; to audit. A tiny pure function like this is also trivial to unit-test: <code>resolve("../etc", "/work")</code> must be an <code>Error</code>.'}
+  ]}
+  ,file_ops:{key:'file_ops',file:'src/claude_code/internal/file_ops.gleam',lang:'gleam',notes:[
+    {lines:'1-7',text:'Imports: the sandbox, our JSON field helper, path/int/string utilities, and <code>simplifile</code> for the actual disk access.'},
+    {lines:'9-16',text:'<code>read_file</code> is a pipeline of fallible steps joined by <code>use</code>: get the path, sandbox-check it, read it. Any failure becomes the function&rsquo;s <code>Error</code>; the happy path falls through to <code>Ok(content)</code>.',
+      q:'<code>simplifile.read</code> fails with a <code>FileError</code>, but this function returns a <code>String</code> error. What bridges the two?',
+      a:'<code>|&gt; result.map_error(simplifile.describe_error)</code> converts the library&rsquo;s error type into a human-readable string, so every tool speaks the same error language.'},
+    {lines:'18-36',text:'<code>write_file</code> adds two steps: make the parent directory (<code>create_directory_all</code>) and write. <code>use _ &lt;- ...</code> means &ldquo;run this for its effect; I don&rsquo;t need the value, but stop if it fails.&rdquo;'},
+    {lines:'38-51',text:'<code>edit_file</code>: read, replace, write. It edits the file as a value &mdash; nothing is mutated in place; we compute the new contents and write them back.'},
+    {lines:'53-58',text:'<code>replace_once</code> swaps only the <em>first</em> occurrence using <code>string.split_once</code>.',
+      q:'Why replace only the first match rather than all of them?',
+      a:'It forces the model to be precise about <em>which</em> spot it means. Replacing every match risks clobbering identical text elsewhere; a single, located edit is safer and matches the real Claude Code tool.'}
+  ]}
+  ,todos:{key:'todos',file:'src/claude_code/internal/todos.gleam',lang:'gleam',notes:[
+    {lines:'1-3',text:'Imports for formatting and list work. The file is named <code>todos</code>, not <code>todo</code> &mdash; <code>todo</code> is a reserved keyword in Gleam (it marks unfinished code).'},
+    {lines:'5-13',text:'Two types: the three states a task can be in, and the item itself. A status can only ever be one of these three &mdash; no stray strings to validate.'},
+    {lines:'15-15',text:'A module constant. <code>pub const</code> values are compile-time fixed; note a const name may not start with an underscore.'},
+    {lines:'17-24',text:'Validation matches on <em>two</em> conditions at once: too many items, or more than one in-progress. Each combination has a branch and the compiler checks they are all covered.',
+      q:'Why <code>case a, b { ... }</code> instead of nesting two <code>case</code> expressions?',
+      a:'Matching a tuple of conditions keeps the rules flat and readable, and the compiler still proves every combination of <code>True</code>/<code>False</code> is handled. Less nesting, same exhaustiveness guarantee.'},
+    {lines:'26-40',text:'<code>render</code> turns the list into the text the model sees: one line per item plus a &ldquo;(done/total completed)&rdquo; tally. An empty list short-circuits to a friendly message.'},
+    {lines:'42-48',text:'A private helper mapping each status to a checkbox glyph. Private because nothing outside this module needs it.'}
+  ]}
+  ,agent_todo:{key:'agent_todo',file:'src/claude_code/agent.gleam (todo handling)',lang:'gleam',notes:[
+    {lines:'1-17',text:'The <code>todo</code> tool handler: parse the items, validate them, and on success return a <strong>new state</strong> with the fresh list and <code>idle_turns</code> reset to 0. The old state is never modified.',
+      q:'How does the todo list &ldquo;persist&rdquo; between turns if we never mutate anything?',
+      a:'It lives on <code>AgentState</code>. This handler returns a new state carrying the updated list; <code>run_tools</code> threads that forward into the loop, which feeds it into the next turn. Persistence by passing values, not by mutation.'},
+    {lines:'19-28',text:'<code>parse_todos</code> reads the <code>items</code> array out of the JSON input. <code>list.try_map</code> applies a per-item parser (<code>parse_todo_item</code>, not shown) and fails fast if any item is malformed.'},
+    {lines:'30-42',text:'<code>append_results</code> packages tool results into a user message and bumps <code>idle_turns</code>. (Lines 31&ndash;35 also fold in finished background jobs &mdash; that part belongs to Stage&nbsp;8; ignore it for now.)'},
+    {lines:'43-50',text:'The nag: if nagging is enabled, several turns have passed with no todo update, and open items remain, append a gentle reminder. It fights the model&rsquo;s tendency to forget its plan deep in a long context.',
+      q:'Why reset <code>idle_turns</code> to 0 inside the todo handler (line 13)?',
+      a:'Calling the todo tool <em>is</em> updating the plan, so the idle counter restarts. The nag only fires after several turns where the model touched other tools but not its plan.'}
+  ]}
+  ,agent_config:{key:'agent_config',file:'src/claude_code/agent.gleam (config)',lang:'gleam',notes:[
+    {lines:'1-3',text:'A <code>LoopConfig</code> captures everything that differs between a full agent and a restricted one: which tools are allowed, how many iterations are permitted, and whether to nag. The differences become <em>data</em>, not branches scattered through the loop.'},
+    {lines:'5-15',text:'The default config: every tool, a high iteration cap, nagging on. This is what the top-level agent runs with.'},
+    {lines:'17-25',text:'The subagent config: a small allowlist, a hard 30-iteration cap, no nag.',
+      q:'Notice what is missing from the subagent&rsquo;s list: <code>agent</code>, <code>todo</code>, the task and background tools. Why hold those back?',
+      a:'No <code>agent</code> prevents infinite recursion (subagents spawning subagents). No <code>todo</code>/task tools keep the child from meddling with the parent&rsquo;s plan. The cap stops a runaway. The restriction is expressed purely as a shorter list.'}
+  ]}
+  ,agent_subagent:{key:'agent_subagent',file:'src/claude_code/agent.gleam (subagent)',lang:'gleam',notes:[
+    {lines:'1-2',text:'The <code>agent</code> tool handler: read the prompt the parent wants delegated.'},
+    {lines:'3-10',text:'Build a <strong>fresh</strong> <code>AgentState</code> from the parent&rsquo;s: same client and skills, but a clean message history, the restricted config, and an empty todo list. Same record type &mdash; just different field values.'},
+    {lines:'11-12',text:'Run the <em>same</em> <code>loop</code> we already have, then keep only the final text. <code>_discarded</code> throws away the subagent&rsquo;s entire conversation, so none of its file reads or shell output pollute the parent&rsquo;s context.',
+      q:'In an object-oriented design you might subclass the agent for &ldquo;restricted mode&rdquo;. Why is no subclass needed here?',
+      a:'The loop already takes its whole world as a parameter. A subagent is the same function called with different arguments &mdash; pure parameterisation. Reuse comes from passing data, not from inheritance.'}
+  ]}
+  ,skills:{key:'skills',file:'src/claude_code/internal/skills.gleam',lang:'gleam',notes:[
+    {lines:'1-6',text:'Imports. <code>dict</code> gives us an in-memory index from skill name to skill; <code>simplifile</code> reads the files at startup.'},
+    {lines:'8-14',text:'A <code>Skill</code> is a name, a one-line description, and a full body. The loader just holds a <code>Dict</code> of them &mdash; built once, read many times, never mutated.'},
+    {lines:'16-25',text:'<code>load</code> scans a directory once at startup. If the directory does not exist, we return an empty loader instead of failing &mdash; graceful degradation: no skills configured is a valid state.'},
+    {lines:'27-36',text:'For each subfolder, read its <code>SKILL.md</code>. A file that is missing or unreadable is simply skipped (the <code>Error(Nil)</code>), thanks to <code>list.filter_map</code> in <code>load</code>.'},
+    {lines:'38-48',text:'Parse YAML-ish frontmatter by splitting on <code>---</code>: the middle chunk holds <code>name</code>/<code>description</code>, the rest is the body. No YAML library needed for two fields.'},
+    {lines:'50-63',text:'<code>field</code> finds a <code>key: value</code> line. <code>list.find_map</code> returns the first line that both splits on <code>:</code> and matches the key.'},
+    {lines:'65-75',text:'Layer 1, the cheap menu: one line per skill, always present in the system prompt. About 100 tokens total.',
+      q:'Line 71 sorts with <code>fn(a, b) { string.compare(a.name, b.name) }</code>. Why not return a <code>Bool</code> like &ldquo;a &lt; b&rdquo;?',
+      a:'<code>list.sort</code> expects a comparator returning an <code>Order</code> (<code>Lt</code>/<code>Eq</code>/<code>Gt</code>), not a boolean. <code>string.compare</code> already returns exactly that, so we hand it over directly &mdash; a classic slip when arriving from languages where sort wants &ldquo;is-less-than&rdquo;.'},
+    {lines:'77-82',text:'Layer 2, the expensive body: returned only when the model explicitly calls <code>load_skill</code>. Unknown names get a friendly message rather than an error.'}
+  ]}
+  ,agent_sysprompt:{key:'agent_sysprompt',file:'src/claude_code/agent.gleam (constructor)',lang:'gleam',notes:[
+    {lines:'1-21',text:'<code>new</code> is the constructor that wires every dependency &mdash; client, skills, task store, background actor &mdash; into the very first <code>AgentState</code>. After this, the loop just threads it forward.'},
+    {lines:'23-32',text:'The system prompt bakes in the skill <em>menu</em> (Layer 1). If no skills are configured, the menu is empty and we use the base prompt unchanged.',
+      q:'Why put the one-line menu in every request, but make the full body a tool call?',
+      a:'The menu is tiny and constant, so it is cheap to always include and lets the model know what exists. Bodies can be thousands of tokens each &mdash; you only pay for one when the model decides it actually needs that skill. Cheap awareness, expensive detail on demand.'}
+  ]}
+  ,agent_skill:{key:'agent_skill',file:'src/claude_code/agent.gleam (load_skill)',lang:'gleam',notes:[
+    {lines:'1-8',text:'The <code>load_skill</code> handler is a thin shim: read the requested name and return the skill body from the loader. All the real work happened once, at startup, in <code>skills.load</code>.'}
+  ]}
+  ,compact:{key:'compact',file:'src/claude_code/internal/compact.gleam',lang:'gleam',notes:[
+    {lines:'1-6',text:'Imports. Compaction only ever transforms lists of messages, so it needs the API types and list/string helpers &mdash; nothing stateful.'},
+    {lines:'8-10',text:'Two tunable constants: how many recent messages to leave untouched, and the token budget that triggers summarisation. Plain values, easy to find and change.'},
+    {lines:'12-20',text:'Layer&nbsp;1, micro-compact: a pure <code>List(Message) -&gt; List(Message)</code>. It walks the messages with <code>index_map</code> and shortens old tool results, keeping the most recent few intact.',
+      q:'Every compaction function here has type <code>List(Message) -&gt; List(Message)</code> (or a <code>Result</code> of one). Why does that shape make &ldquo;do nothing on failure&rdquo; trivial?',
+      a:'Because the safe fallback is simply returning the input list unchanged. There is no half-mutated buffer to clean up &mdash; a pure transformation either produces a new list or you keep the old one. Compaction can never corrupt the conversation.'},
+    {lines:'22-36',text:'<code>elide</code> replaces a long tool result with a short placeholder, leaving everything else alone. Short results are not worth shrinking.'},
+    {lines:'38-56',text:'Token estimation without a tokenizer: sum the characters of text and tool-result content, divide by four. A rough heuristic is plenty for deciding when to summarise.'},
+    {lines:'58-84',text:'Layer&nbsp;2, auto-compact: only if we are over budget, ask the model itself to summarise the transcript, and replace the whole history with that one summary message. Under budget, it returns the messages unchanged.',
+      q:'Notice line 60 returns <code>Ok(messages)</code> when under threshold &mdash; the same type as the summarised result. Why is that nice for the caller?',
+      a:'The caller writes one uniform line: &ldquo;compact, then use the result.&rdquo; Whether compaction happened or not, it gets back a valid message list. No special &ldquo;nothing to do&rdquo; branch leaks out.'},
+    {lines:'86-111',text:'Helpers: render the transcript for the summariser, and pull the plain text out of the model&rsquo;s reply. Both are pure list transformations.'}
+  ]}
+  ,agent_compact:{key:'agent_compact',file:'src/claude_code/agent.gleam (compaction hook)',lang:'gleam',notes:[
+    {lines:'1-9',text:'<code>compact_step</code> runs at the top of every loop turn: always micro-compact, then auto-compact if over budget. Crucially, if auto-compact errors (bad network, odd reply) we keep the <strong>original</strong> messages and carry on.',
+      q:'Why is it safe &mdash; even correct &mdash; to just ignore a compaction failure?',
+      a:'Compaction is an optimisation, never a requirement. The uncompacted history is always valid; the worst case of a failed compaction is using more tokens, not losing the conversation. So <code>Error(_) -&gt; state</code> is the right move.'},
+    {lines:'11-16',text:'<code>handle_compact</code> is the explicit <code>compact</code> tool, letting the model summarise on demand rather than waiting for the threshold.'}
+  ]}
+  ,tasks:{key:'tasks',file:'src/claude_code/internal/tasks.gleam',lang:'gleam',notes:[
+    {lines:'1-8',text:'Imports: JSON both ways, files, and helpers. There is no database &mdash; the filesystem is the store.'},
+    {lines:'10-25',text:'The data: a task has an id, text, a status, and two dependency lists (<code>blocked_by</code> / <code>blocks</code>). Those lists are the edges of a directed graph.'},
+    {lines:'27-34',text:'The store remembers a directory and the next id to hand out. <code>init</code> scans existing files to continue numbering after a restart.',
+      q:'Why compute <code>next_id</code> by scanning the directory instead of keeping a counter in memory?',
+      a:'Because the tasks outlive the process. After a restart there is no in-memory counter; the files on disk are the source of truth, so we derive the next id from them. The filesystem <em>is</em> the state.'},
+    {lines:'36-50',text:'<code>create</code> writes a new task file and returns an updated store (with the bumped id). State change as a returned value, exactly like <code>AgentState</code>.'},
+    {lines:'52-67',text:'<code>set_status</code> updates one task; when a task becomes done, it cascades.'},
+    {lines:'69-95',text:'Read-side queries and rendering: list everything, get one, format for the model.'},
+    {lines:'97-118',text:'The cascade: when a task completes, scan every other task and remove the completed id from its <code>blocked_by</code>. Tasks that lose their last blocker become runnable.'},
+    {lines:'120-140',text:'The file layer: one JSON file per task, named by id. Reading and writing each go through <code>simplifile</code>, mapping errors to strings.',
+      q:'Why one file per task instead of a single <code>tasks.json</code> holding the list?',
+      a:'A crash mid-write can corrupt at most one task, not the whole plan, and two writers touching different tasks never collide on the same file. Per-file granularity buys atomicity and isolation for free.'},
+    {lines:'142-170',text:'Scanning helpers: list ids by parsing <code>N.json</code> filenames, and find the maximum for <code>init</code>.'},
+    {lines:'172-200',text:'The JSON bridge: encode a task to <code>Json</code> and decode one back, with a small mapping for the status strings &mdash; the same two-direction split we saw in <code>json_value</code>.'}
+  ]}
+  ,agent_tasks:{key:'agent_tasks',file:'src/claude_code/agent.gleam (task tools)',lang:'gleam',notes:[
+    {lines:'1-17',text:'<code>task_create</code> writes a task and returns a new state carrying the updated store (its <code>next_id</code> advanced). Matching two <code>Result</code>s at once (<code>subject</code>, <code>description</code>) keeps the validation flat.'},
+    {lines:'19-36',text:'<code>task_update</code> maps the status string to our enum and sets it &mdash; which may trigger the cascade. The store itself is unchanged, so we return the same state.'},
+    {lines:'38-49',text:'<code>task_get</code> reads one task by id. Read-only, so subagents are allowed this and <code>task_list</code> but not create/update.'}
+  ]}
+  ,background:{key:'background',file:'src/claude_code/internal/background.gleam',lang:'gleam',notes:[
+    {lines:'1-7',text:'Imports. <code>gleam/otp/actor</code> and <code>gleam/erlang/process</code> are the concurrency tools &mdash; the only place in the whole project we reach for them.'},
+    {lines:'9-23',text:'The protocol. A job has a status; a <code>Notification</code> reports a finished job; and <code>Message</code> is what the actor accepts: <code>RunJob</code> and <code>Drain</code> are requests carrying a reply channel, while <code>JobDone</code> is an internal message a worker sends back.'},
+    {lines:'25-33',text:'The private <code>State</code>. This is the single piece of state that genuinely changes over time in the entire system &mdash; and it lives <em>inside a process</em>, reachable only by sending messages.'},
+    {lines:'35-49',text:'Start the actor. <code>new_with_initialiser</code> hands the actor its own <code>Subject</code> (its address). We stash that <code>self</code> in the state so workers can message the actor back, and return it to the caller as <code>started.data</code>.',
+      q:'Why does the actor need a reference to <em>itself</em>?',
+      a:'Background workers run in separate processes. When a job finishes, the worker must tell the manager &mdash; so the manager keeps its own address (<code>self</code>) in state and the worker sends <code>JobDone</code> to it. The initialiser is the one place that address is available.'},
+    {lines:'51-59',text:'<code>run</code> and <code>drain</code> are the public, synchronous API. <code>process.call</code> sends a message bundled with a fresh reply channel and waits for the answer &mdash; turning message-passing back into an ordinary function call.'},
+    {lines:'61-98',text:'The handler &mdash; the actor&rsquo;s &ldquo;loop&rdquo;. <code>RunJob</code> spawns a worker process, immediately replies with a job id, and records the job. <code>JobDone</code> files the notification. <code>Drain</code> hands back all notifications and clears them. Each returns the next state via <code>actor.continue</code>.',
+      q:'Everywhere else we banned mutable state. Why is mutable state behind this actor safe, when a shared variable guarded by a lock is not?',
+      a:'The actor handles one message at a time, in order, with no shared memory &mdash; so there are no races and no locks to forget. State changes are just the value returned from each handler. The mailbox serialises access for free; a lock makes you remember to do that yourself, correctly, every time.'},
+    {lines:'100-116',text:'Rendering helpers for the notifications and statuses &mdash; ordinary pure functions, back outside the process.'}
+  ]}
+  ,agent_bg:{key:'agent_bg',file:'src/claude_code/agent.gleam (bg_run)',lang:'gleam',notes:[
+    {lines:'1-11',text:'<code>bg_run</code> sends <code>RunJob</code> and returns the job id <em>immediately</em> &mdash; it does not wait for the command to finish. The agent keeps working; finished jobs are folded into a later turn by <code>append_results</code> (Stage&nbsp;3), which drains the actor.'}
+  ]}
+  /* MOD_INSERT */
+};
+
+var STAGES=[
+  {id:'start',group:'Begin',nav:'How to read this',render:function(){return ''
+    +'<span class="kicker"><span class="dot"></span> a line-by-line guide for tour-fresh Gleam</span>'
+    +'<h1>Build a Claude Code agent <em>in Gleam</em></h1>'
+    +'<p class="lead">You just finished the language tour and have never written Gleam &mdash; or much of anything &mdash; before. This guide builds a real coding agent the way Gleam wants it built, and walks every module <strong>line by line</strong>. The full code is verified: it compiles, with no gaps.</p>'
+    +'<div class="box goal"><h4>How each page works</h4>'
+    +'<p>On the left you see a complete, compiling module with line numbers. On the right, a note for every meaningful line. <strong>Hover a note</strong> to highlight the lines it talks about. Where there is a real design choice, a <strong>&ldquo;?&rdquo; question</strong> invites you to think first &mdash; click it to reveal the answer.</p></div>'
+    +'<div class="box refresher"><h4>Gleam in 60 seconds (tour recap)</h4>'
+    +'<p>Everything is an expression. There are no classes and no mutation: you make new values instead of changing old ones. <code>Result(ok, err)</code> is how functions report success or failure. The pipe <code>|&gt;</code> feeds a value into the next function. <code>use x &lt;- f(...)</code> is sugar that unwraps a <code>Result</code> and stops early on error. <code>case</code> matches the shape of data and must cover every possibility.</p></div>'
+    +'<div class="box swift"><h4>About the Swift original</h4>'
+    +'<p>This agent follows Ivan Magda&rsquo;s Swift series in <em>spirit</em>, but we never translate Swift line-for-line. Swift appears only as an occasional one-line aside (in orange) when contrasting a habit &mdash; like &ldquo;a class with mutable fields&rdquo; &mdash; with the Gleam way.</p></div>';}},
+
+  {id:'architecture',group:'Begin',nav:'Architecture',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">MAP</span><h2>How the app is organised</h2></div>'
+    +'<p class="lead">Before any code: what modules exist, what each one is responsible for, and which way they depend on each other. In Gleam you design with <em>modules and types</em>, not objects.</p>'
+    +'<h3>One job per module</h3>'
+    +'<table class="tbl">'
+    +'<tr><td>claude_code</td><td>The entry point: <code>main</code> and the REPL loop that reads your input.</td></tr>'
+    +'<tr><td>agent</td><td>The brain: the <code>AgentState</code> value, the recursive loop, and tool dispatch. Knows the tools, not the wire.</td></tr>'
+    +'<tr><td>api</td><td>The wire: API data types, JSON encoders/decoders, and the one HTTP call. Knows nothing about tools.</td></tr>'
+    +'<tr><td>json_value</td><td>A JSON value we can both read and write &mdash; the round-trip type tool inputs need.</td></tr>'
+    +'<tr><td>internal/&hellip;</td><td>Implementation details: <code>shell</code>, <code>sandbox</code>, <code>file_ops</code>, <code>todos</code>, <code>skills</code>, <code>compact</code>, <code>tasks</code>, <code>background</code>. The <code>internal</code> folder signals &ldquo;not the public API&rdquo;.</td></tr>'
+    +'</table>'
+    +'<div class="diagram"><div class="dcap">Dependencies point inward, toward the core types</div>'
+    +'<div class="fcol">'
+    +'<div class="nd ink">claude_code.gleam<small>main + REPL</small></div><div class="ar">&darr;</div>'
+    +'<div class="nd gl">agent.gleam<small>state &middot; loop &middot; dispatch</small></div><div class="ar">&darr;</div>'
+    +'<div class="frow"><div class="nd">internal/shell</div><div class="nd">internal/file_ops</div><div class="nd">internal/todos</div><div class="nd">internal/skills</div></div>'
+    +'<div class="frow"><div class="nd">internal/compact</div><div class="nd">internal/tasks</div><div class="nd">internal/background</div></div>'
+    +'<div class="ar">&darr;</div><div class="nd gl">api.gleam &amp; json_value.gleam<small>types the whole system shares</small></div>'
+    +'</div></div>'
+    +'<div class="box refresher"><h4>Why so many small modules?</h4><p>A module that does one thing is easy to read, test, and change without fear. When the dangerous part (running shell commands, escaping the workspace) lives in its own tiny file, there is exactly one place to audit. Gleam has no &ldquo;library vs executable&rdquo; split to fight &mdash; every file under <code>src/</code> is importable &mdash; so folders are free to express intent.</p></div>';}},
+
+  {id:'stage-0',group:'Foundation',nav:'0 · Bootstrap',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 0</span><h2>Project bootstrap</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>Create the project and declare the libraries we will use. Notice that JSON arrives as <em>two</em> separate tools &mdash; encoding and decoding are not the same library.</p></div>'
+    +'<p><code class="inl">gleam new claude_code</code> creates the skeleton. Then we fill in dependencies:</p>'
+    +renderWalk({key:'gleam_toml',file:'gleam.toml',lang:'toml',notes:[
+      {lines:'1-2',text:'Project name and version. The name must match the root module file, <code>src/claude_code.gleam</code>.'},
+      {lines:'4-13',text:'Runtime dependencies. <code>gleam_stdlib</code> is the standard library; the rest are the specific capabilities the agent needs &mdash; HTTP, JSON, files, paths, environment, and (later) OTP processes.',
+        q:'Why are <code>gleam_json</code> and the decode API counted as &ldquo;one&rdquo; capability but split across libraries?',
+        a:'<code>gleam_json</code> only <em>encodes</em>. Decoding lives in the stdlib&rsquo;s <code>gleam/dynamic/decode</code>. The split is deliberate: it stops you from assuming a value is readable just because it was writable, and vice versa.'},
+      {lines:'15-16',text:'Dev-only dependencies. Note the <strong>underscore</strong> in <code>[dev_dependencies]</code> &mdash; a hyphen here is silently ignored. Gleam is snake_case everywhere.'}
+    ]})
+    +'<div class="box swift"><h4>Swift aside</h4><p>The Swift project needs two SPM targets (a library plus an executable) so tests can import the code. Gleam has no such rule, so there is nothing to set up here beyond listing dependencies.</p></div>';}},
+
+  {id:'stage-1',group:'Foundation',nav:'1 · API & loop',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 1</span><h2>The JSON value &amp; the API types</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>Model the conversation as Gleam types and solve the JSON round-trip problem before anything else. The agent loop and HTTP client build on these foundations (continued on the next pages).</p></div>'
+    +'<h3>The JSON round-trip type</h3>'
+    +'<p>This little module is the most &ldquo;Gleam&rdquo; idea in the whole project, so we start here. Hover any note to light up its lines.</p>'
+    +renderWalk(MODULES.json_value)
+    +'<div class="box refresher"><h4>New tour idea: <code>decode.recursive</code> and <code>one_of</code></h4><p>A decoder describes <em>how</em> to read data. <code>one_of</code> tries alternatives in order; <code>recursive</code> lets a decoder reference itself for nested data. You compose small decoders into bigger ones, the same way you compose functions.</p></div>'
+    +'<h3>Extension: testing the round-trip, the Gleam way</h3>'
+    +'<p>We just built two halves &mdash; <code>to_json</code> <em>writes</em>, <code>decoder</code> <em>reads</em>. The most valuable test is not to check each one alone, but to prove they <strong>agree</strong>: encode a value, decode it straight back, and assert you got the same value. That single property is precisely what the agent leans on every time it echoes a tool input back to the API unchanged.</p>'
+    +'<div class="box goal"><h4>Goal</h4><p>Write a handful of small <code>gleeunit</code> tests for <code>json_value</code> &mdash; one helper plus one assertion per shape &mdash; using only ideas from the language tour: <code>assert</code>, pipelines, and equality on values.</p></div>'
+    +'<p><strong>Step 1 &mdash; make a test module.</strong> Create <code>test/json_value_test.gleam</code>. You do <em>not</em> write a <code>main</code> here: <code>gleeunit</code> scans the <code>test/</code> folder and runs every function whose name ends in <code>_test</code>. The generated <code>claude_code_test.gleam</code> already holds the one <code>main</code> that kicks things off.</p>'
+    +'<p><strong>Step 2 &mdash; capture the property once.</strong> Write a tiny private helper that runs a value all the way out and back. Every test after that is a one-liner that calls it.</p>'
+    +renderWalk(MODULES.json_value_test)
+    +'<p><strong>Step 3 &mdash; fill in the rest yourself.</strong> Follow the &ldquo;your turn&rdquo; comment. Each new test is a single <code>assert</code>; lean on the helper so you never hand-write an expected JSON string, except where you deliberately want to pin the wire format (as in <code>encode_string_test</code>). Run the lot with <code class="inl">gleam test</code>.</p>'
+    +'<div class="box refresher"><h4>New tour idea: <code>gleeunit</code> + <code>assert</code></h4><p>A test is just a public function ending in <code>_test</code> that runs <code>assert &lt;expression&gt;</code>. If the expression is <code>False</code> (or a pattern fails to match) the test fails with a readable message. No framework objects, no annotations &mdash; the same <code>assert</code> from the tour, discovered automatically across every module under <code>test/</code>.</p></div>'
+    +'<div class="box swift"><h4>Swift aside</h4><p>Swift would add an <code>XCTestCase</code> subclass in a dedicated test target, with methods prefixed <code>test</code>. Gleam needs neither a class nor a separate target: any <code>_test</code> function under <code>test/</code> is collected for you.</p></div>'
+    +'<h3>The API types &amp; HTTP client</h3>'
+    +'<p>Now the wire. We model the conversation as types, then write one function that turns a request into a typed response. Every fallible step is a <code>Result</code>, chained with <code>use</code>.</p>'
+    +renderWalk(MODULES.api)
+    +'<h3>The agent loop</h3>'
+    +'<p>This is the heartbeat. Hold its shape in your head &mdash; it never changes for the rest of the guide. Every later stage just adds a new tool branch.</p>'
+    +'<div class="diagram"><div class="dcap">The invariant loop</div><div class="fcol">'
+    +'<div class="frow"><div class="nd">user query</div><div class="ar">&rarr;</div><div class="nd ink">create_message<small>HTTP &rarr; API</small></div><div class="ar">&rarr;</div><div class="nd gl">stop_reason?<small>pattern match</small></div></div>'
+    +'<div class="frow"><div class="nd dash">EndTurn / MaxTokens<small>return text, done</small></div><div class="ar">or</div><div class="nd" style="border-color:var(--green);color:var(--green)">ToolUseStop</div><div class="ar">&rarr;</div><div class="nd">run tools</div><div class="ar">&rarr;</div><div class="nd">append results</div></div>'
+    +'<div class="loopback">&#8635; recurse with the new state &mdash; same function, one more message</div>'
+    +'</div></div>'
+    +renderWalk(MODULES.agent_loop)
+    +'<div class="box swift"><h4>Swift aside</h4><p>Swift would write <code>final class Agent</code> with a mutable <code>messages</code> array and a <code>while true</code> loop that pushes onto it. Gleam has neither: the array becomes an immutable field, and <code>while true</code> becomes a tail-recursive <code>loop</code>. The behaviour is identical; the state is just honest about where it lives.</p></div>'
+    +'<h3>Two doors out of Gleam: shell &amp; stdin</h3>'
+    +'<p>Running commands and reading keyboard input aren&rsquo;t in the standard library &mdash; they truly live outside Gleam. We cross into Erlang at two tiny, clearly-marked boundaries. Being forced to name these is a feature: side effects can&rsquo;t sneak in elsewhere.</p>'
+    +renderWalk(MODULES.shell)
+    +renderWalk(MODULES.shell_erl)
+    +renderWalk(MODULES.stdin)
+    +'<div class="box refresher"><h4>New tour idea: FFI with <code>@external</code></h4><p>An <code>@external(erlang, "module", "function")</code> attribute attaches a Gleam type signature to a function written in Erlang (in a <code>.erl</code> file beside it). Gleam can&rsquo;t check the Erlang body, so you keep these boundaries tiny and return a <code>Result</code> so callers handle failure normally.</p></div>'
+    +'<h3>main &amp; the REPL</h3>'
+    +'<p>Finally, the entry point ties everything together and runs an interactive loop &mdash; itself recursive, threading state forward.</p>'
+    +renderWalk(MODULES.main)
+    +'<div class="box goal"><h4>What you can run now</h4><p>With an API key set, <code>gleam run</code> gives you a prompt. Type a request; the agent calls <code>bash</code>, feeds the output back, and answers. Everything after this stage is <em>more tools</em> hung off the same loop.</p></div>';}}
+
+  ,{id:'stage-2',group:'Tools',nav:'2 · Files & dispatch',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 2</span><h2>Tool dispatch &amp; file tools</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>Teach the agent to read, write, and edit files &mdash; safely. Watch dispatch grow from one branch to many without any registry, and meet the path sandbox that keeps the agent inside its workspace.</p></div>'
+    +'<h3>Dispatch is just a <code>case</code></h3>'
+    +'<p>Every tool the model can call funnels through one function. Adding a capability is adding a branch &mdash; nothing more.</p>'
+    +renderWalk(MODULES.agent_dispatch)
+    +'<div class="box swift"><h4>Swift aside</h4><p>A Swift design might register handler objects in a <code>[String: Handler]</code> dictionary. Forgetting to register one fails at runtime. Here the branches <em>are</em> the registry, visible in one place &mdash; and the catch-all turns an unknown name into a recoverable error, not a crash.</p></div>'
+    +'<h3>The sandbox</h3>'
+    +'<p>Before any file is touched, its path passes one gate. This is the only place that defines &ldquo;inside the workspace&rdquo;.</p>'
+    +'<div class="diagram"><div class="dcap">One gate for every file path</div><div class="frow">'
+    +'<div class="nd">requested path</div><div class="ar">&rarr;</div><div class="nd gl">join onto cwd</div><div class="ar">&rarr;</div><div class="nd">has &quot;..&quot; or escapes cwd?</div><div class="ar">&rarr;</div>'
+    +'<div class="fcol"><div class="nd" style="border-color:var(--green);color:var(--green)">no &rarr; Ok(path)</div><div class="nd" style="border-color:var(--swift);color:var(--swift-ink)">yes &rarr; Error</div></div>'
+    +'</div></div>'
+    +renderWalk(MODULES.sandbox)
+    +'<h3>The file handlers</h3>'
+    +'<p>Each handler is a short pipeline of fallible steps. Read them as &ldquo;do this, and if it fails stop and report; otherwise carry on&rdquo;.</p>'
+    +renderWalk(MODULES.file_ops)
+    +'<div class="box refresher"><h4>New tour idea: <code>use _ &lt;- result.try(...)</code></h4><p>When you only care that a step <em>succeeded</em> (like writing a file) and not its return value, bind it to <code>_</code>. The chain still stops early on the first <code>Error</code>. It is the functional version of &ldquo;these statements run in order, and any one can fail&rdquo;.</p></div>';}}
+
+  ,{id:'stage-3',group:'Tools',nav:'3 · Todo tool',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 3</span><h2>The todo tool</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>Give the agent a structured notepad that rides along in <code>AgentState</code>, plus a gentle &ldquo;nag&rdquo; that reminds it to keep the plan current. This is the first state that visibly accumulates &mdash; and it does so without a single mutation.</p></div>'
+    +'<h3>The todo module</h3>'
+    +'<p>Pure data and pure functions: a list of items, a validator, and a renderer. No object owns the list; it is just a value.</p>'
+    +renderWalk(MODULES.todos)
+    +'<div class="box swift"><h4>Swift aside</h4><p>Swift would likely use a <code>class TodoManager</code> with a mutable <code>items</code> array and methods that change it in place. Here the list is a field on <code>AgentState</code> and every &ldquo;change&rdquo; produces a new state. No shared identity means nothing can edit it behind your back.</p></div>'
+    +'<h3>Wiring it into the loop</h3>'
+    +'<p>The handler validates the new list and returns a new state. The nag lives where tool results are appended.</p>'
+    +renderWalk(MODULES.agent_todo)
+    +'<div class="box refresher"><h4>New tour idea: record update <code>Record(..old, field: value)</code></h4><p>This makes a copy of <code>old</code> with one or more fields replaced. It is how an immutable program &ldquo;changes&rdquo; state: you never edit a value, you derive the next one. The compiler checks the field names exist.</p></div>';}}
+
+  ,{id:'stage-4',group:'Orchestration',nav:'4 · Subagents',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 4</span><h2>Subagents</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>Let the agent spawn a focused helper with a clean history, a restricted toolset, and an iteration cap. Only the helper&rsquo;s final answer returns &mdash; its intermediate work is discarded so the parent&rsquo;s context stays clean.</p></div>'
+    +'<div class="diagram"><div class="dcap">Context isolation: only text crosses back</div><div class="frow">'
+    +'<div class="nd ink">parent loop<small>full history</small></div><div class="ar">&rarr;</div>'
+    +'<div class="nd gl">fresh state<small>clean messages<br>restricted config</small></div><div class="ar">&rarr;</div>'
+    +'<div class="nd dash" style="border-color:var(--gleam)">child loop<small>history discarded</small></div><div class="ar">&rarr;</div>'
+    +'<div class="nd" style="border-color:var(--green);color:var(--green)">final text only</div><div class="ar">&rarr;</div>'
+    +'<div class="nd ink">parent continues</div>'
+    +'</div></div>'
+    +'<h3>Differences as data: <code>LoopConfig</code></h3>'
+    +'<p>Instead of branching on &ldquo;am I a subagent?&rdquo; everywhere, we capture the differences in a small config value.</p>'
+    +renderWalk(MODULES.agent_config)
+    +'<h3>The handler reuses the loop</h3>'
+    +renderWalk(MODULES.agent_subagent)
+    +'<div class="box refresher"><h4>The big idea: reuse by parameterisation</h4><p>Because <code>loop</code> takes its state as a parameter, &ldquo;a restricted version of the agent&rdquo; is not a new type or a subclass &mdash; it is the same function with a different <code>AgentState</code> passed in, and a different choice of what to keep from the result.</p></div>';}}
+
+  ,{id:'stage-5',group:'Orchestration',nav:'5 · Skill loading',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 5</span><h2>Skill loading</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>A two-layer skill system. Every skill&rsquo;s one-line description is always in the system prompt (cheap). The full body loads only when the model calls <code>load_skill</code> (expensive, on demand).</p></div>'
+    +'<div class="diagram"><div class="dcap">Two layers, two costs</div><div class="frow">'
+    +'<div class="fcol"><div class="nd gl">menu()<small>~1 line each, always</small></div><div class="nd">baked into system prompt</div></div>'
+    +'<div class="ar">vs</div>'
+    +'<div class="fcol"><div class="nd">model calls load_skill</div><div class="nd gl">body_for()<small>full text, only now</small></div></div>'
+    +'</div></div>'
+    +'<h3>The loader</h3>'
+    +'<p>Built once at startup into an immutable dictionary; every later lookup is a pure read.</p>'
+    +renderWalk(MODULES.skills)
+    +'<h3>How the menu reaches the model</h3>'
+    +'<p>The constructor folds the cheap menu into the system prompt; the tool serves the expensive body.</p>'
+    +renderWalk(MODULES.agent_sysprompt)
+    +renderWalk(MODULES.agent_skill)
+    +'<div class="box refresher"><h4>New tour idea: <code>Dict</code> and startup-time work</h4><p>A <code>Dict(k, v)</code> is an immutable key-value map. We pay the cost of scanning the filesystem exactly once, store the result in a <code>Dict</code>, and from then on every lookup is cheap and pure &mdash; no caches to invalidate.</p></div>';}}
+
+  ,{id:'stage-6',group:'Scale',nav:'6 · Compaction',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 6</span><h2>Context compaction</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>Let the agent run forever by compressing old context. Two layers: cheap structural pruning on every turn, and model-driven summarisation when the conversation grows too big. Both are pure functions, and both fail safe.</p></div>'
+    +'<div class="diagram"><div class="dcap">A pipeline of pure functions, run before each call</div><div class="frow">'
+    +'<div class="nd">messages</div><div class="ar">&rarr;</div><div class="nd gl">micro_compact<small>prune old results</small></div><div class="ar">&rarr;</div>'
+    +'<div class="nd">estimate_tokens<small>bytes / 4</small></div><div class="ar">&rarr;</div><div class="nd">over budget?</div><div class="ar">&rarr;</div><div class="nd gl">auto_compact<small>LLM summary</small></div>'
+    +'</div><div class="loopback" style="border-color:var(--swift);color:var(--swift-ink);background:var(--swift-soft)">on any failure: return the ORIGINAL messages &mdash; compaction must never break the loop</div></div>'
+    +'<h3>The compaction module</h3>'
+    +renderWalk(MODULES.compact)
+    +'<h3>Hooking it into the loop</h3>'
+    +renderWalk(MODULES.agent_compact)
+    +'<div class="box refresher"><h4>Why &ldquo;pure <code>List -&gt; List</code>&rdquo; matters</h4><p>Because each layer just maps an input list to an output list, the safe answer on any error is &ldquo;return what you were given&rdquo;. A compactor that mutated a shared buffer could leave it half-edited; a pure transformation cannot. Purity is what makes &ldquo;never crash the loop&rdquo; a one-liner.</p></div>';}}
+
+  ,{id:'stage-7',group:'Scale',nav:'7 · Task DAG',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 7</span><h2>Task system (a file-based DAG)</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>A durable plan that survives compaction <em>and</em> restarts. Each task is one JSON file; dependencies form a directed graph; finishing a task unblocks the ones waiting on it.</p></div>'
+    +'<div class="diagram"><div class="dcap">Tasks as files, dependencies as edges</div><div class="frow">'
+    +'<div class="nd gl">#1 scaffold<small>completed</small></div><div class="ar">&rarr;</div>'
+    +'<div class="fcol"><div class="nd">#2 api client<small>blocked_by [1]</small></div><div class="nd">#3 file tools<small>blocked_by [1]</small></div></div><div class="ar">&rarr;</div>'
+    +'<div class="nd">#4 agent loop<small>blocked_by [2,3]</small></div></div>'
+    +'<p style="font-family:\'JetBrains Mono\',monospace;font-size:.7rem;color:var(--muted);text-align:center;margin:.6rem 0 0">complete #1 &rarr; cascade removes &quot;1&quot; from #2 and #3 &rarr; both become runnable</p></div>'
+    +'<h3>The task store</h3>'
+    +'<p>No database &mdash; <code>simplifile</code> plus our JSON round-trip <em>is</em> the storage engine.</p>'
+    +renderWalk(MODULES.tasks)
+    +'<h3>The task tools</h3>'
+    +renderWalk(MODULES.agent_tasks)
+    +'<div class="box refresher"><h4>todo (Stage 3) vs. tasks (Stage 7)</h4><p>They look similar but answer different questions. <strong>todo</strong> is an ephemeral scratchpad on <code>AgentState</code> &mdash; cheap, flat, gone when the process exits. <strong>tasks</strong> are a durable dependency graph on disk &mdash; heavier, structured, restart-proof. Keeping them separate stops one from quietly swallowing the other&rsquo;s job.</p></div>';}}
+
+  ,{id:'stage-8',group:'Scale',nav:'8 · Background jobs',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">STAGE 8</span><h2>Background tasks</h2></div>'
+    +'<div class="box goal"><h4>Goal</h4><p>Run slow commands without blocking the agent. This needs the one piece of genuinely mutable, concurrent state in the whole system &mdash; and Gleam puts it behind a process mailbox, not a lock.</p></div>'
+    +'<div class="diagram"><div class="dcap">The one mutable spot, behind a mailbox</div><div class="frow">'
+    +'<div class="nd ink">agent loop<small>pure / immutable</small></div><div class="ar">&rarr;</div>'
+    +'<div class="nd gl">background actor<small>jobs + notifications<br>(only mutable state)</small></div><div class="ar">&rarr;</div>'
+    +'<div class="fcol"><div class="nd">worker process</div><div class="nd">worker process</div></div>'
+    +'</div><div class="loopback">RunJob &rarr; spawn worker &rarr; worker sends JobDone back &rarr; Drain collects results</div></div>'
+    +'<h3>The actor</h3>'
+    +'<p>A long-lived process that owns its state and only ever changes it by receiving a message.</p>'
+    +renderWalk(MODULES.background)
+    +'<h3>The bg_run tool</h3>'
+    +renderWalk(MODULES.agent_bg)
+    +'<div class="box swift"><h4>Swift aside</h4><p>Swift has an <code>actor</code> keyword for thread-safe state. Gleam&rsquo;s answer is an OTP process: same guarantee (serialised access, no data races) but built from message-passing rather than compiler-enforced isolation. No locks, no <code>@MainActor</code> hops &mdash; just a mailbox.</p></div>';}}
+
+  ,{id:'gleam-way',group:'Reference',nav:'★ The Gleam Way',render:function(){return ''
+    +'<div class="view-head"><span class="view-n">RECAP</span><h2>The Gleam Way</h2></div>'
+    +'<p class="lead">One recursive loop, fourteen tools, and a single mutable spot behind a mailbox. Every stage added exactly one mechanism &mdash; and the loop at the centre never changed shape.</p>'
+    +'<h3>What each stage added</h3>'
+    +'<table class="tbl">'
+    +'<tr><td>0</td><td>Project &amp; dependencies; the encode/decode split.</td></tr>'
+    +'<tr><td>1</td><td>JSON round-trip type, API types, the loop, FFI, REPL.</td></tr>'
+    +'<tr><td>2</td><td>case dispatch, the path sandbox, file tools.</td></tr>'
+    +'<tr><td>3</td><td>Todo list on state, the idle nag.</td></tr>'
+    +'<tr><td>4</td><td>Subagents via a LoopConfig value (parameterisation).</td></tr>'
+    +'<tr><td>5</td><td>Two-layer skill loading.</td></tr>'
+    +'<tr><td>6</td><td>Three pure compaction layers, fail-safe.</td></tr>'
+    +'<tr><td>7</td><td>File-based task DAG with cascade unblock.</td></tr>'
+    +'<tr><td>8</td><td>One OTP actor for background jobs.</td></tr>'
+    +'</table>'
+    +'<h3>Seven habits that make it Gleam, not Swift-in-disguise</h3>'
+    +'<div class="box"><p><strong>1. State is a record, not an object.</strong> Every &ldquo;method&rdquo; is a function: old <code>AgentState</code> in, new one out via <code>AgentState(..old, field: value)</code>.</p>'
+    +'<p><strong>2. The loop is tail recursion.</strong> No <code>while</code>, no mutable counter. Each turn computes the next turn&rsquo;s arguments and recurses.</p>'
+    +'<p><strong>3. Dispatch is a <code>case</code>.</strong> No registry, no protocol, no dictionary of closures &mdash; one tool, one branch, exhaustiveness checked.</p>'
+    +'<p><strong>4. Errors are values.</strong> Every fallible step returns <code>Result</code>; <code>use</code> chains them; &ldquo;do nothing on failure&rdquo; is always available.</p>'
+    +'<p><strong>5. Reuse by parameterisation.</strong> Subagents are the same loop with a different <code>LoopConfig</code> &mdash; inheritance never enters the picture.</p>'
+    +'<p><strong>6. One mutable spot, behind a mailbox.</strong> Only background jobs need an actor; everything else is pure data flow.</p>'
+    +'<p><strong>7. The filesystem is durable memory.</strong> Tasks are JSON files, skills are markdown, transcripts are text &mdash; <code>simplifile</code> is the query engine.</p></div>'
+    +'<div class="box refresher"><h4>The one mindset shift</h4><p>In Swift you ask &ldquo;what object owns this state, and what methods mutate it?&rdquo; In Gleam you ask &ldquo;what value flows through which functions, and what new value comes out?&rdquo; Once that question replaces the first, every decision in this guide stops being a translation trick and becomes the obvious thing to do.</p></div>'
+    +'<div class="box goal"><h4>All of it compiles</h4><p>Every snippet in this guide was taken from one project that builds with <code>gleam build</code> on Gleam 1.16 &mdash; zero errors, zero warnings, no stubs. You can read it top to bottom and trust that it runs.</p></div>';}}
+
+  /* STAGE_INSERT */
+];
+
+/* ============ app shell ============ */
+function buildNav(){
+  var groups=[],seen={};
+  STAGES.forEach(function(s){if(!seen[s.group]){seen[s.group]=1;groups.push(s.group);}});
+  var html='<span class="brand" onclick="show(\'start\')">claude_code<b>.gleam</b></span><span class="brand-sub">line-by-line tutorial</span>';
+  groups.forEach(function(g){
+    html+='<div class="nav-sec">'+g+'</div>';
+    STAGES.filter(function(s){return s.group===g;}).forEach(function(s){
+      html+='<a class="nav-link" data-id="'+s.id+'" onclick="show(\''+s.id+'\')"><span class="nav-n">&rsaquo;</span> '+s.nav+'</a>';
+    });
+  });
+  document.getElementById('nav').innerHTML=html;
+}
+function show(id){
+  var idx=STAGES.findIndex(function(s){return s.id===id;});if(idx<0)idx=0;
+  var s=STAGES[idx];
+  var prev=idx>0?STAGES[idx-1]:null,next=idx<STAGES.length-1?STAGES[idx+1]:null;
+  var pager='<div class="pager">'
+    +(prev?'<a onclick="show(\''+prev.id+'\')">&larr; '+prev.nav+'</a>':'<span></span>')
+    +(next?'<a onclick="show(\''+next.id+'\')">'+next.nav+' &rarr;</a>':'<span></span>')+'</div>';
+  var main=document.getElementById('content');
+  main.innerHTML='<div class="view active">'+s.render()+pager+'</div>';
+  wireWalk(main);
+  document.querySelectorAll('.nav-link').forEach(function(l){l.classList.toggle('active',l.getAttribute('data-id')===id);});
+  if(location.hash!=='#'+id)history.replaceState(null,'','#'+id);
+  window.scrollTo(0,0);
+}
+buildNav();
+show((location.hash||'#start').slice(1));
+window.addEventListener('hashchange',function(){show(location.hash.slice(1));});
+</script>
+</body>
+</html>
